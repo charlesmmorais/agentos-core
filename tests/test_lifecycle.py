@@ -14,7 +14,7 @@ class Lifecycle(unittest.TestCase):
     def test_kill_restore_and_continue(self):
         with tempfile.TemporaryDirectory() as tmp:
             state = pathlib.Path(tmp) / "original"
-            subprocess.run([str(BIN), "init", "--state", str(state),
+            subprocess.run([str(BIN), "init", "--executor", "trusted-host", "--state", str(state),
                             "--workspace", str(ROOT / "examples/data"),
                             "--script", str(ROOT / "examples/analyze.py"),
                             "--interval", "2", "--cycles", "3"], check=True)

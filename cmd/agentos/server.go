@@ -30,7 +30,7 @@ func serve(s *core.Store, st *core.State, address string) error {
 	if err != nil {
 		return err
 	}
-	controller := core.NewController(s, st, core.PinnedPython{Manifest: st.Execution})
+	controller := core.NewController(s, st, core.SelectExecutor(st.Execution))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	server := &http.Server{Handler: controller.Handler(token), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}

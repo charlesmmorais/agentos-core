@@ -14,6 +14,8 @@ import (
 
 // Manifest is an inventory, not a signature or a full dependency-content lock.
 type Manifest struct {
+	Runtime           string `json:"runtime,omitempty"`
+	Image             string `json:"image,omitempty"`
 	ScriptSHA256      string `json:"script_sha256"`
 	Python            string `json:"python"`
 	PythonSHA256      string `json:"python_sha256"`
@@ -50,7 +52,23 @@ func Inspect(p Protocol) (*Manifest, error) {
 	if err = cmd.Run(); err != nil {
 		return nil, err
 	}
-	return &Manifest{digest(source), python, digest(binary), digest(output.Bytes())}, nil
+	return &Manifest{ScriptSHA256: digest(source), Python: python, PythonSHA256: digest(binary), EnvironmentSHA256: digest(output.Bytes())}, nil
+}
+
+func SelectExecutor(m *Manifest) Executor {
+	if m != nil && m.Runtime == "docker" {
+		return DockerPython{Manifest: m}
+	}
+	if m != nil && m.Runtime != "" {
+		return rejectedExecutor{}
+	}
+	return PinnedPython{Manifest: m}
+}
+
+type rejectedExecutor struct{}
+
+func (rejectedExecutor) Execute(context.Context, Protocol, Request) (json.RawMessage, error) {
+	return nil, errors.New("unsupported executor; no fallback")
 }
 
 type PinnedPython struct{ Manifest *Manifest }

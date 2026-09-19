@@ -33,6 +33,8 @@ func run() error {
 	interval := flags.Int("interval", 5, "seconds between cycles")
 	cycles := flags.Int("cycles", 3, "maximum cycles")
 	listen := flags.String("listen", "127.0.0.1:8080", "loopback API address")
+	runtime := flags.String("executor", "docker", "docker (default) or trusted-host")
+	image := flags.String("image", "", "local immutable Docker image ID")
 	if err := flags.Parse(os.Args[2:]); err != nil {
 		return err
 	}
@@ -57,7 +59,7 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		st.Execution, err = core.Inspect(st.Protocol)
+		st.Execution, err = inspectExecution(st.Protocol, *runtime, *image)
 		if err != nil {
 			return err
 		}
@@ -76,7 +78,7 @@ func run() error {
 		if st.Pending != "" {
 			return errors.New("pending cycle: restore the original script/environment or cancel this mission")
 		}
-		st.Execution, err = core.Inspect(st.Protocol)
+		st.Execution, err = inspectExecution(st.Protocol, *runtime, *image)
 		if err != nil {
 			return err
 		}
@@ -106,7 +108,7 @@ func run() error {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		for st.Status == "active" {
-			if err = core.Tick(ctx, s, st, core.PinnedPython{Manifest: st.Execution}, time.Now().UTC()); err != nil {
+			if err = core.Tick(ctx, s, st, core.SelectExecutor(st.Execution), time.Now().UTC()); err != nil {
 				return err
 			}
 			fmt.Printf("agent=%s completed=%d status=%s\n", st.AgentID, st.Completed, st.Status)
@@ -122,5 +124,16 @@ func run() error {
 		return nil
 	default:
 		return errors.New("unknown command")
+	}
+}
+
+func inspectExecution(p core.Protocol, runtime, image string) (*core.Manifest, error) {
+	switch runtime {
+	case "docker":
+		return core.InspectDocker(p, image)
+	case "trusted-host":
+		return core.Inspect(p)
+	default:
+		return nil, errors.New("unknown executor")
 	}
 }

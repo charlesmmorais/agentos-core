@@ -18,7 +18,7 @@ class APILifecycle(unittest.TestCase):
     def test_pause_resume_cancel_live(self):
         with tempfile.TemporaryDirectory() as tmp:
             state = pathlib.Path(tmp) / "state"
-            subprocess.run([str(BIN), "init", "--state", str(state),
+            subprocess.run([str(BIN), "init", "--executor", "trusted-host", "--state", str(state),
                             "--workspace", str(ROOT / "examples/data"),
                             "--script", str(ROOT / "examples/analyze.py"),
                             "--interval", "30", "--cycles", "3"], check=True)

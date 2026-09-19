@@ -1,4 +1,6 @@
-# Arquitetura v0.2
+# Arquitetura v0.3
+
+O executor padrão de novas missões é Docker. As descrições de subprocesso Python abaixo se aplicam ao modo legado `trusted-host`; consulte [SANDBOX.md](SANDBOX.md) para a fronteira de isolamento, montagem de dados e broker. O controlador seleciona o executor pelo manifesto persistido; runtimes desconhecidos falham sem fallback.
 
 ## Componentes
 
@@ -44,4 +46,4 @@ O máximo de ciclos é um limite de execuções confirmadas, não de tentativas.
 
 Operador, protocolo, scripts e dependências são confiáveis nesta fase. Diretório de estado criado com 0700, snapshots e artefatos com 0600; isso não constitui criptografia. A identidade aleatória é um identificador, não uma assinatura criptográfica. O manifesto confere script, executável Python e inventário de pacotes, mas não todos os bytes do ambiente. O script principal é executado a partir dos bytes verificados; a substituição concorrente de dependências/interpreter pelo operador não está no modelo de proteção.
 
-As camadas futuras de broker, identidade de workload e sandbox devem ser implementadas antes de executar código gerado por LLM com acesso a dados ou redes sensíveis.
+A v0.3 adiciona sandbox Docker e broker de snapshots de leitura. Identidade de workload, autorização de ações externas e homologação para dados sensíveis continuam pendentes.
