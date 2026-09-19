@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0
+
+- Adaptador Go opcional para Chat Completions, sem bibliotecas externas.
+- Snapshot de fontes, trechos e hashes preservados nos artefatos cognitivos.
+- Validação de esquema e citações literais; interpretações continuam não verificadas.
+- Orçamento persistente de tentativas, timeout, resposta limitada e rejeição de ferramentas/redirecionamentos.
+- Testes com provedor simulado, Python real e retomada após esgotamento.
+
+Limites: análise somente; sem planejamento de ações, RAG, MCP ou avaliação com modelo real.
+
 ## 0.3.0
 
 - Executor Docker padrão para novas missões; ID de imagem imutável e sem fallback.

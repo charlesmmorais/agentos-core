@@ -35,6 +35,10 @@ func run() error {
 	listen := flags.String("listen", "127.0.0.1:8080", "loopback API address")
 	runtime := flags.String("executor", "docker", "docker (default) or trusted-host")
 	image := flags.String("image", "", "local immutable Docker image ID")
+	model := flags.String("llm-model", "", "optional model name; enables cognitive analysis")
+	baseURL := flags.String("llm-base-url", "", "operator-approved API base URL, e.g. https://host/v1")
+	maxCalls := flags.Int("llm-max-calls", 3, "persistent maximum cognitive attempts")
+	maxTokens := flags.Int("llm-max-tokens", 1024, "maximum requested output tokens per call")
 	if err := flags.Parse(os.Args[2:]); err != nil {
 		return err
 	}
@@ -62,6 +66,12 @@ func run() error {
 		st.Execution, err = inspectExecution(st.Protocol, *runtime, *image)
 		if err != nil {
 			return err
+		}
+		if *model != "" || *baseURL != "" {
+			st.Cognition = &core.CognitionConfig{BaseURL: *baseURL, Model: *model, MaxCalls: *maxCalls, MaxTokens: *maxTokens}
+			if err = st.Cognition.Validate(); err != nil {
+				return err
+			}
 		}
 		if err = s.Save(st); err != nil {
 			return err
@@ -108,7 +118,7 @@ func run() error {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		for st.Status == "active" {
-			if err = core.Tick(ctx, s, st, core.SelectExecutor(st.Execution), time.Now().UTC()); err != nil {
+			if err = core.Tick(ctx, s, st, core.MissionExecutor(st), time.Now().UTC()); err != nil {
 				return err
 			}
 			fmt.Printf("agent=%s completed=%d status=%s\n", st.AgentID, st.Completed, st.Status)

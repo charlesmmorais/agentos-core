@@ -77,6 +77,13 @@ func (c *Controller) Step(ctx context.Context, now time.Time) error {
 		st.Pending = fmt.Sprintf("%s:%d", st.AgentID, st.Completed+1)
 		st.Events = append(st.Events, Event{now, "started", st.Completed + 1})
 	}
+	if err := reserveModel(c.store, st); err != nil {
+		if !errors.Is(err, errModelBudget) {
+			c.fatal = err
+		}
+		c.mu.Unlock()
+		return err
+	}
 	if err := c.store.Save(st); err != nil {
 		c.fatal = err
 		c.mu.Unlock()

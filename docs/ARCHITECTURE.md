@@ -1,4 +1,4 @@
-# Arquitetura v0.3
+# Arquitetura v0.4
 
 O executor padrão de novas missões é Docker. As descrições de subprocesso Python abaixo se aplicam ao modo legado `trusted-host`; consulte [SANDBOX.md](SANDBOX.md) para a fronteira de isolamento, montagem de dados e broker. O controlador seleciona o executor pelo manifesto persistido; runtimes desconhecidos falham sem fallback.
 
@@ -7,6 +7,8 @@ O executor padrão de novas missões é Docker. As descrições de subprocesso P
 `cmd/agentos`: CLI init/run/serve/status/pause/resume/cancel/attest.
 
 `internal/core`: protocolo, estado, persistência, executor, manifesto, artefatos e controlador HTTP.
+
+`CognitiveExecutor` envolve o executor selecionado quando o estado contém configuração LLM. Exporta fontes, executa Python e chama o endpoint configurado pelo operador. A reserva de tentativa é persistida antes desse trabalho. A memória inclui análise, citações verificadas e trechos com hashes; o modelo não recebe capacidades de ação. Veja [COGNITION.md](COGNITION.md).
 
 ## Controle concorrente
 
@@ -34,13 +36,13 @@ Requisição JSON em stdin: agent_id, mission, cycle_id, workspace, memory.
 
 Resposta: objeto JSON em stdout, limitado a 1 MiB. Resultado inválido não confirma o ciclo. O stderr também é limitado e não é incluído na mensagem de erro do núcleo. O resultado é escrito atomicamente em arquivo endereçado pelo SHA-256 antes de o snapshot confirmar a referência. Uma falha intermediária pode deixar um arquivo órfão, nunca uma confirmação anterior à persistência do artefato.
 
-O executor utiliza grupo de processos Linux, timeout e encerramento do grupo em cancelamento. Isso não é uma barreira contra código malicioso que crie sessões próprias. Filhos independentes e acesso ao host requerem sandbox real na próxima etapa.
+O executor host utiliza grupo de processos Linux, timeout e encerramento do grupo em cancelamento. Isso não é uma barreira contra código malicioso que crie sessões próprias. O modo Docker aplica a fronteira adicional descrita em SANDBOX.md.
 
 ## Operação
 
 Uma falha no script encerra `run` com erro e preserva o ciclo pendente. Em `serve`, pausa a missão, mantendo a API disponível. Não existe retry infinito automático nesta versão. O intervalo é calculado após a conclusão; ativações perdidas não são acumuladas.
 
-O máximo de ciclos é um limite de execuções confirmadas, não de tentativas. Limites persistentes de tentativas e orçamento financeiro serão necessários antes de habilitar ferramentas pagas.
+O máximo de ciclos limita execuções confirmadas. Missões cognitivas também têm limite persistente de tentativas, consumido inclusive em falhas. Isso não constitui orçamento financeiro global: cobrança e limites monetários precisam ser configurados no provedor.
 
 ## Segurança e confiança
 

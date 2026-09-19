@@ -21,7 +21,7 @@ Chamamos continuidade à preservação computacional de identidade, missão, mem
 
 Despertar → carregar estado → verificar autoridade e orçamento → executar atividade → validar saída → confirmar memória e ciclo → agendar próxima ativação.
 
-O protocolo inicial é uma máquina de estados explícita. A evolução cognitiva adicionará interpretação de objetivos e seleção de tarefas sem alterar a obrigação de persistir e verificar cada resultado.
+O protocolo inicial é uma máquina de estados explícita. A v0.4 interpreta objetivos para análise com fontes. A seleção de tarefas permanece futura, preservando a obrigação de persistir e verificar cada resultado.
 
 ## Arquitetura de produto
 
@@ -40,7 +40,7 @@ Persistência: interfaces exportáveis e versões de esquema explícitas. O snap
 | 0.1 | Missão única, ciclos, Python, snapshot, retomada e testes | Implementado |
 | 0.2 | API de controle, histórico de artefatos, verificação de script e ambiente | Implementado; limites descritos no README |
 | 0.3 | Executor Docker restrito, limites efetivos e broker de leitura | Implementado; requer validação no host de implantação |
-| 0.4 | Adaptador LLM e memória recuperável com fontes | Planejado |
+| 0.4 | Adaptador LLM e memória recuperável com fontes | Implementado; validado com provedor simulado |
 | 0.5 | MCP de leitura e RAG | Planejado |
 | 0.6 | Intenções, aprovações, recibos e reconciliação de escrita | Planejado |
 | 0.7 | Backup consistente, restauração assistida e supervisor externo | Planejado |

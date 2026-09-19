@@ -30,17 +30,19 @@ type Event struct {
 	Cycle int       `json:"cycle"`
 }
 type State struct {
-	Version   int             `json:"version"`
-	AgentID   string          `json:"agent_id"`
-	Protocol  Protocol        `json:"protocol"`
-	Status    string          `json:"status"`
-	Completed int             `json:"completed"`
-	NextRun   time.Time       `json:"next_run"`
-	Pending   string          `json:"pending,omitempty"`
-	Memory    json.RawMessage `json:"memory,omitempty"`
-	Events    []Event         `json:"events"`
-	Execution *Manifest       `json:"execution,omitempty"`
-	Artifacts []Artifact      `json:"artifacts,omitempty"`
+	Version       int              `json:"version"`
+	AgentID       string           `json:"agent_id"`
+	Protocol      Protocol         `json:"protocol"`
+	Status        string           `json:"status"`
+	Completed     int              `json:"completed"`
+	NextRun       time.Time        `json:"next_run"`
+	Pending       string           `json:"pending,omitempty"`
+	Memory        json.RawMessage  `json:"memory,omitempty"`
+	Events        []Event          `json:"events"`
+	Execution     *Manifest        `json:"execution,omitempty"`
+	Artifacts     []Artifact       `json:"artifacts,omitempty"`
+	Cognition     *CognitionConfig `json:"cognition,omitempty"`
+	ModelAttempts int              `json:"model_attempts"`
 }
 type Store struct {
 	Dir  string
@@ -71,11 +73,16 @@ func (s *Store) Load() (*State, error) {
 	if err = json.Unmarshal(b, &st); err != nil {
 		return nil, err
 	}
-	if st.Version != 1 || st.AgentID == "" {
+	if st.Version != 1 || st.AgentID == "" || st.ModelAttempts < 0 {
 		return nil, errors.New("unsupported or invalid state")
 	}
 	if err = st.Protocol.Validate(); err != nil {
 		return nil, err
+	}
+	if st.Cognition != nil {
+		if err = st.Cognition.Validate(); err != nil {
+			return nil, err
+		}
 	}
 	switch st.Status {
 	case "active", "paused", "cancelled", "completed":
@@ -194,9 +201,12 @@ func Tick(ctx context.Context, s *Store, st *State, e Executor, now time.Time) e
 	if st.Pending == "" {
 		st.Pending = fmt.Sprintf("%s:%d", st.AgentID, st.Completed+1)
 		st.Events = append(st.Events, Event{now, "started", st.Completed + 1})
-		if err := s.Save(st); err != nil {
-			return err
-		}
+	}
+	if err := reserveModel(s, st); err != nil {
+		return err
+	}
+	if err := s.Save(st); err != nil {
+		return err
 	}
 	result, err := e.Execute(ctx, st.Protocol, Request{st.AgentID, st.Protocol.Mission, st.Pending, st.Protocol.Workspace, st.Memory})
 	if err != nil {
