@@ -1,0 +1,1 @@
+AgentOS Core: demonstração de análise local e continuidade persistente.
