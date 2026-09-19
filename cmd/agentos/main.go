@@ -22,7 +22,7 @@ func main() {
 }
 func run() error {
 	if len(os.Args) < 2 {
-		return errors.New("usage: agentos init|run|status|pause|resume|cancel [flags]")
+		return errors.New("usage: agentos init|run|serve|status|pause|resume|cancel|attest [flags]")
 	}
 	action := os.Args[1]
 	flags := flag.NewFlagSet(action, flag.ContinueOnError)
@@ -32,6 +32,7 @@ func run() error {
 	mission := flags.String("mission", "Monitorar arquivos do workspace", "mission description")
 	interval := flags.Int("interval", 5, "seconds between cycles")
 	cycles := flags.Int("cycles", 3, "maximum cycles")
+	listen := flags.String("listen", "127.0.0.1:8080", "loopback API address")
 	if err := flags.Parse(os.Args[2:]); err != nil {
 		return err
 	}
@@ -56,6 +57,10 @@ func run() error {
 		if err != nil {
 			return err
 		}
+		st.Execution, err = core.Inspect(st.Protocol)
+		if err != nil {
+			return err
+		}
 		if err = s.Save(st); err != nil {
 			return err
 		}
@@ -67,6 +72,21 @@ func run() error {
 		return err
 	}
 	switch action {
+	case "attest":
+		if st.Pending != "" {
+			return errors.New("pending cycle: restore the original script/environment or cancel this mission")
+		}
+		st.Execution, err = core.Inspect(st.Protocol)
+		if err != nil {
+			return err
+		}
+		st.Events = append(st.Events, core.Event{At: time.Now().UTC(), Kind: "attested", Cycle: st.Completed})
+		return s.Save(st)
+	case "serve":
+		if st.Execution == nil {
+			return errors.New("execution manifest missing; run attest")
+		}
+		return serve(s, st, *listen)
 	case "status":
 		b, _ := json.MarshalIndent(st, "", "  ")
 		fmt.Println(string(b))
@@ -80,10 +100,13 @@ func run() error {
 		st.Events = append(st.Events, core.Event{At: time.Now().UTC(), Kind: action, Cycle: st.Completed})
 		return s.Save(st)
 	case "run":
+		if st.Execution == nil {
+			return errors.New("execution manifest missing; run attest")
+		}
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		for st.Status == "active" {
-			if err = core.Tick(ctx, s, st, core.Python{}, time.Now().UTC()); err != nil {
+			if err = core.Tick(ctx, s, st, core.PinnedPython{Manifest: st.Execution}, time.Now().UTC()); err != nil {
 				return err
 			}
 			fmt.Printf("agent=%s completed=%d status=%s\n", st.AgentID, st.Completed, st.Status)

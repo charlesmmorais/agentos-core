@@ -2,7 +2,7 @@
 
 Micronúcleo em Go para agentes persistentes, com protocolo autônomo e executor Python separado.
 
-**v0.1 — laboratório de continuidade local, Linux/WSL2.** Implementação funcional sem dependências Go externas. Não inclui LLM, RAG, MCP, sandbox de segurança, HA ou DR automático nesta etapa.
+**v0.2 — laboratório de continuidade local, Linux/WSL2.** API local autenticada, histórico de resultados por ciclo e verificação de script/ambiente. Sem dependências Go externas. Não inclui LLM, RAG, MCP, sandbox de segurança, HA ou DR automático nesta etapa.
 
 ## Visão
 
@@ -31,7 +31,7 @@ Para observar a continuidade, inicialize com mais ciclos, execute `run`, interro
 
 ## Controle
 
-O lock exclusivo protege todo o período de execução. Nesta versão, pare `run` antes de consultar ou alterar o estado por outra CLI:
+O lock exclusivo protege todo o período de execução. Para os comandos CLI abaixo, pare `run` antes de consultar ou alterar o estado. Para controlar sem interromper o serviço, use `serve` e a API:
 
 ```bash
 ./agentos pause
@@ -40,7 +40,37 @@ O lock exclusivo protege todo o período de execução. Nesta versão, pare `run
 ./agentos run
 ```
 
-`cancel` encerra administrativamente a missão; cancelamento e conclusão são terminais. Ctrl+C apenas encerra o executor e permite retomada posterior. Ainda não existe API de controle concorrente.
+`cancel` encerra administrativamente a missão; cancelamento e conclusão são terminais. Ctrl+C apenas encerra o executor e permite retomada posterior.
+
+## API durante a execução
+
+Inicialize a missão primeiro. Em Linux/WSL2, gere um token local e mantenha-o no terminal:
+
+```bash
+export AGENTOS_API_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+./agentos serve --listen 127.0.0.1:8080 &
+AGENTOS_PID=$!
+curl -H "Authorization: Bearer $AGENTOS_API_TOKEN" http://127.0.0.1:8080/v1/state
+curl -X POST -H "Authorization: Bearer $AGENTOS_API_TOKEN" http://127.0.0.1:8080/v1/control/pause
+curl -X POST -H "Authorization: Bearer $AGENTOS_API_TOKEN" http://127.0.0.1:8080/v1/control/resume
+curl -H "Authorization: Bearer $AGENTOS_API_TOKEN" http://127.0.0.1:8080/v1/artifacts/1
+kill "$AGENTOS_PID"
+wait "$AGENTOS_PID"
+```
+
+O artefato 1 existe após a confirmação do primeiro ciclo. A API aceita somente endereços loopback literais; token mínimo de 32 caracteres, sem CORS. Não é uma API multiusuário ou destinada à Internet. Ações: `pause`, `resume`, `cancel`. O serviço permanece disponível quando pausado ou concluído, até receber sinal de encerramento.
+
+Pausa/cancelamento cancelam a atividade em andamento. Resultados tardios não são confirmados, inclusive se o operador retomar antes de o executor antigo sair. Isso não desfaz efeitos externos já realizados pelo script.
+
+## Integridade e atualização de estado antigo
+
+`init` registra SHA-256 do script principal e do executável Python, além de um fingerprint da versão, prefixos e inventário de nomes/versões de pacotes. Cada execução confere esse manifesto. O script executado corresponde aos bytes verificados; limite de 64 KiB no arquivo de entrada.
+
+Para estados da v0.1, com serviço parado e sem ciclo pendente, revise os arquivos e execute `./agentos attest`. O comando aceita explicitamente a configuração atual. Não reatesta ciclos pendentes: restaure o script/ambiente original ou cancele a missão e crie outra.
+
+Em `serve`, falha de execução pausa a missão e preserva o ciclo pendente. Em `run`, a falha encerra o processo com erro. Não há repetição automática ilimitada.
+
+Os resultados ficam em `state/artifacts/<sha256>.json`. O snapshot referencia cada ciclo; leitura pela API verifica hash e tamanho. Arquivos órfãos após crash não são considerados resultados confirmados.
 
 ## Verificação
 
@@ -51,15 +81,15 @@ go build -o agentos ./cmd/agentos
 python3 -m unittest discover -s tests -v
 ```
 
-Os testes cobrem replay com o mesmo identificador, pausa, cancelamento, orçamento, concorrência de escritores, estado inválido, integração Python, timeout, encerramento abrupto do processo e restauração local em outro diretório.
+Os testes cobrem replay, controle concorrente, descarte de resultado tardio, autenticação da API, artefatos corrompidos, mudança do script/ambiente, timeout, encerramento abrupto e restauração local.
 
 ## Limites explícitos
 
 - Execute somente scripts confiáveis. `python3 -I` e subprocessos não restringem acesso ao filesystem ou à rede.
 - O processo recebe ambiente reduzido, timeout de 30 segundos e saída limitada a 1 MiB. Não há limites de CPU/memória nem sandbox contra código hostil.
 - A repetição é segura apenas para o exemplo de leitura. Escritas externas precisam de idempotência e reconciliação futuras.
-- O snapshot contém a última memória e eventos de ciclo; não é uma trilha imutável ou assinada. A v0.1 limita a missão a 10.000 ciclos.
-- O protocolo e o script são administrados por um operador confiável. Não há verificação de hash do script na execução, identidade criptográfica ou autenticação multiusuário.
+- O snapshot contém a última memória, eventos e referências a resultados; não é uma trilha imutável ou assinada. O limite é 10.000 ciclos, até aproximadamente 10 GiB de resultados no pior caso. Não há quota total de disco.
+- Manifestos detectam mudanças comuns, mas não verificam os bytes de todas as bibliotecas, módulos importados ou bibliotecas compartilhadas. Não protegem contra um operador hostil alterando simultaneamente código, manifesto e ambiente. Identidade criptográfica e autenticação multiusuário continuam pendentes.
 - Não há serviço supervisor instalado: retomar automaticamente após reboot exige configuração operacional adicional.
 - Persistência local atômica não substitui backup nem garante sobrevivência a perda de disco.
 

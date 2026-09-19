@@ -39,6 +39,8 @@ type State struct {
 	Pending   string          `json:"pending,omitempty"`
 	Memory    json.RawMessage `json:"memory,omitempty"`
 	Events    []Event         `json:"events"`
+	Execution *Manifest       `json:"execution,omitempty"`
+	Artifacts []Artifact      `json:"artifacts,omitempty"`
 }
 type Store struct {
 	Dir  string
@@ -150,13 +152,16 @@ func (b *limitedBuffer) Write(p []byte) (int, error) {
 	return b.Buffer.Write(p)
 }
 func (Python) Execute(ctx context.Context, p Protocol, r Request) (json.RawMessage, error) {
+	return executePython(ctx, p, r, "python3", []string{"-I", p.Script})
+}
+func executePython(ctx context.Context, p Protocol, r Request, python string, args []string) (json.RawMessage, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(p.TimeoutSeconds)*time.Second)
 	defer cancel()
 	input, err := json.Marshal(r)
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.CommandContext(ctx, "python3", "-I", p.Script)
+	cmd := exec.CommandContext(ctx, python, args...)
 	cmd.Dir = p.Workspace
 	cmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8"}
 	cmd.Stdin = bytes.NewReader(input)
@@ -197,6 +202,11 @@ func Tick(ctx context.Context, s *Store, st *State, e Executor, now time.Time) e
 	if err != nil {
 		return err
 	}
+	artifact, err := s.PutArtifact(st.Completed+1, result)
+	if err != nil {
+		return err
+	}
+	st.Artifacts = append(st.Artifacts, artifact)
 	st.Memory = result
 	st.Completed++
 	st.Pending = ""

@@ -38,7 +38,7 @@ Persistência: interfaces exportáveis e versões de esquema explícitas. O snap
 | Marco | Conteúdo | Situação |
 |---|---|---|
 | 0.1 | Missão única, ciclos, Python, snapshot, retomada e testes | Implementado |
-| 0.2 | API de controle, histórico de artefatos, verificação de script e ambiente | Planejado |
+| 0.2 | API de controle, histórico de artefatos, verificação de script e ambiente | Implementado; limites descritos no README |
 | 0.3 | Isolamento de filesystem/rede/CPU/memória e broker de capacidades | Planejado |
 | 0.4 | Adaptador LLM e memória recuperável com fontes | Planejado |
 | 0.5 | MCP de leitura e RAG | Planejado |
