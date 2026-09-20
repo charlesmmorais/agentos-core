@@ -61,11 +61,22 @@ func (c *Controller) Step(ctx context.Context, now time.Time) error {
 		c.mu.Unlock()
 		return err
 	}
-	if c.running || c.state.Status != "active" || now.Before(c.state.NextRun) {
+	if c.running || c.state.Status != "active" {
 		c.mu.Unlock()
 		return nil
 	}
 	st := c.state
+	if index := nextAction(st); index >= 0 {
+		if st.Actions[index].Status == "proposed" || st.Actions[index].Status == "retry_required" {
+			c.mu.Unlock()
+			return nil
+		}
+		return c.stepActionLocked(ctx, index, false)
+	}
+	if now.Before(st.NextRun) {
+		c.mu.Unlock()
+		return nil
+	}
 	if st.Completed >= st.Protocol.MaxCycles {
 		st.Status = "completed"
 		c.fatal = c.store.Save(st)

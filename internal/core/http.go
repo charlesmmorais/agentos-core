@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -45,6 +46,27 @@ func (c *Controller) Handler(token string) http.Handler {
 				return
 			}
 			w.WriteHeader(204)
+			return
+		}
+		if r.Method == "POST" && strings.HasPrefix(r.URL.Path, "/v1/actions/") {
+			var request struct {
+				ID      string        `json:"id"`
+				Digest  string        `json:"digest"`
+				Payload RecordPayload `json:"payload"`
+			}
+			d := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16384))
+			d.DisallowUnknownFields()
+			if d.Decode(&request) != nil || d.Decode(&struct{}{}) != io.EOF {
+				http.Error(w, "invalid action request", 400)
+				return
+			}
+			a, err := c.ActionControl(strings.TrimPrefix(r.URL.Path, "/v1/actions/"), request.ID, request.Digest, request.Payload)
+			if err != nil {
+				http.Error(w, "action control rejected", 409)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(a)
 			return
 		}
 		http.Error(w, "not found", 404)

@@ -42,7 +42,7 @@ Persistência: interfaces exportáveis e versões de esquema explícitas. O snap
 | 0.3 | Executor Docker restrito, limites efetivos e broker de leitura | Implementado; requer validação no host de implantação |
 | 0.4 | Adaptador LLM e memória recuperável com fontes | Implementado; validado com provedor simulado |
 | 0.5 | MCP de leitura e RAG | Implementado: recursos HTTP autorizados e BM25; perfil e limites em RETRIEVAL.md |
-| 0.6 | Intenções, aprovações, recibos e reconciliação de escrita | Planejado |
+| 0.6 | Intenções, aprovações, recibos e reconciliação de escrita | Implementado para record.create; contrato do destino e limites em WRITES.md |
 | 0.7 | Backup consistente, restauração assistida e supervisor externo | Planejado |
 
 Temporal permanece uma alternativa para workflows mais complexos. A primeira versão deliberadamente demonstra um protocolo pequeno com snapshot; não reimplementa um motor distribuído de workflows.

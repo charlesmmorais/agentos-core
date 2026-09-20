@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"github.com/charlesmmorais/agentos-core/internal/core"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -41,6 +43,11 @@ func run() error {
 	maxTokens := flags.Int("llm-max-tokens", 1024, "maximum requested output tokens per call")
 	rag := flags.Bool("rag", false, "retrieve source chunks using mission terms (requires LLM)")
 	mcpEndpoint := flags.String("mcp-endpoint", "", "operator-authorized MCP Streamable HTTP endpoint")
+	writeEndpoint := flags.String("write-endpoint", "", "approved record service base URL; enables record.create")
+	writeAttempts := flags.Int("write-max-attempts", 3, "persistent write reservations per intent (1..5)")
+	payloadFile := flags.String("payload", "", "JSON file with record name and content, for action-propose")
+	intentID := flags.String("intent", "", "action ID")
+	intentDigest := flags.String("digest", "", "exact reviewed action digest")
 	var mcpResources []string
 	flags.Func("mcp-resource", "exact permitted MCP resource URI; repeat up to 8 times", func(uri string) error { mcpResources = append(mcpResources, uri); return nil })
 	if err := flags.Parse(os.Args[2:]); err != nil {
@@ -89,6 +96,12 @@ func run() error {
 				return err
 			}
 		}
+		if *writeEndpoint != "" {
+			st.Writes = &core.WritePolicy{Endpoint: *writeEndpoint, MaxAttempts: *writeAttempts}
+			if err = st.Writes.Validate(); err != nil {
+				return err
+			}
+		}
 		if err = s.Save(st); err != nil {
 			return err
 		}
@@ -100,6 +113,34 @@ func run() error {
 		return err
 	}
 	switch action {
+	case "action-propose", "action-approve", "action-reject", "action-retry":
+		var payload core.RecordPayload
+		if action == "action-propose" {
+			f, err := os.Open(*payloadFile)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			b, err := io.ReadAll(io.LimitReader(f, 16385))
+			if err != nil || len(b) > 16384 {
+				return errors.New("invalid or oversized action payload")
+			}
+			d := json.NewDecoder(bytes.NewReader(b))
+			d.DisallowUnknownFields()
+			if d.Decode(&payload) != nil || d.Decode(&struct{}{}) != io.EOF {
+				return errors.New("expected JSON with name and content only")
+			}
+		}
+		commands := map[string]string{"action-propose": "propose", "action-approve": "approve", "action-reject": "reject", "action-retry": "retry"}
+		a, err := core.NewController(s, st, nil).ActionControl(commands[action], *intentID, *intentDigest, payload)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(a)
+	case "action-run", "action-reconcile":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return core.NewController(s, st, nil).RunAction(ctx, *intentID, action == "action-reconcile")
 	case "attest":
 		if st.Pending != "" {
 			return errors.New("pending cycle: restore the original script/environment or cancel this mission")

@@ -1,4 +1,4 @@
-# Arquitetura v0.5
+# Arquitetura v0.6
 
 O executor padrão de novas missões é Docker. As descrições de subprocesso Python abaixo se aplicam ao modo legado `trusted-host`; consulte [SANDBOX.md](SANDBOX.md) para a fronteira de isolamento, montagem de dados e broker. O controlador seleciona o executor pelo manifesto persistido; runtimes desconhecidos falham sem fallback.
 
@@ -14,7 +14,9 @@ Quando `retrieval` está configurado, o adaptador usa BM25 para selecionar trech
 
 ## Controle concorrente
 
-Um mutex serializa alterações e snapshots, nunca o trabalho Python. O controlador persiste a intenção, libera o mutex e executa. Ao terminar, verifica status e geração da execução antes de confirmar. Pause/resume/cancel incrementam a geração e cancelam o contexto atual. Um resultado antigo não confirma após uma mudança de autoridade.
+A v0.6 adiciona uma fila limitada de intenções, processada antes dos ciclos analíticos. Propostas são explícitas do operador e exigem aprovação do digest. O estado `in_flight` precede a rede; em recuperação, permite somente consulta ao destino. Recibos são persistidos mesmo após pausa/cancelamento, pois um efeito externo não pode ser descartado como um resultado de leitura. Veja [WRITES.md](WRITES.md).
+
+Um mutex serializa alterações e snapshots, nunca o trabalho Python ou HTTP. Nos ciclos analíticos, o controlador persiste a intenção, libera o mutex e executa. Ao terminar, verifica status e geração da execução antes de confirmar. Pause/resume/cancel incrementam a geração e cancelam o contexto atual. Um resultado analítico antigo não confirma após uma mudança de autoridade. Ações de escrita mantêm o registro de efeitos conforme a regra específica acima.
 
 Somente o serviço possui o lock de filesystem. Clientes HTTP não escrevem o snapshot diretamente. Erro de persistência bloqueia novas execuções; a API não confirma sucesso da alteração.
 

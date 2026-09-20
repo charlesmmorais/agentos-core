@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0
+
+- Intenções record.create persistidas e aprovação explícita por hash de identidade, destino e conteúdo.
+- CLI e API para propor, aprovar e rejeitar ações nunca iniciadas; retry explícito após consulta de ausência.
+- Consulta antes de PUT, ID estável e recibos verificados; recuperação de in_flight faz somente leitura.
+- Orçamentos persistentes, pausa em resultado incerto e reconciliação manual inclusive após cancelamento.
+- Serviço de referência SQLite com efeito e idempotência na mesma transação.
+- Testes de SIGKILL após commit remoto, recuperação sem novo PUT e replay após reinício do destino, também no CI Docker.
+
+Limites: um adaptador controlado; operador único; sem propostas de escrita por LLM, tools/call de escrita, RBAC ou garantia universal de execução única.
+
 ## 0.5.0
 
 - RAG lexical BM25 opcional sobre trechos locais e recursos MCP, com ranking determinístico.

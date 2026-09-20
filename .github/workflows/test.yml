@@ -39,4 +39,5 @@ jobs:
           export AGENTOS_SANDBOX_IMAGE="$(docker image inspect --format '{{.Id}}' python:3.12-slim)"
           python3 -m unittest discover -s tests -p test_sandbox.py -v
           python3 -m unittest discover -s tests -p test_retrieval.py -v
+          python3 -m unittest discover -s tests -p test_actions.py -v
           test -z "$(docker ps -aq --filter 'name=agentos-')"

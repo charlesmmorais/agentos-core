@@ -2,7 +2,7 @@
 
 Micronúcleo em Go para agentes persistentes, com protocolo autônomo e executor Python separado.
 
-**v0.5 — laboratório de continuidade, isolamento e análise com fontes, Linux/cgroup v2.** Executor Docker restrito, LLM opcional, RAG lexical e cliente MCP de recursos com URIs autorizadas. Memória com citações verificadas, API local autenticada e resultados por ciclo. Sem dependências Go externas. Não inclui ferramentas MCP, HA ou DR automático.
+**v0.6 — laboratório de continuidade, isolamento e ações aprovadas, Linux/cgroup v2.** Executor Docker restrito, LLM opcional, RAG lexical, cliente MCP de recursos e escrita controlada `record.create` com aprovação por digest e reconciliação. Sem dependências Go externas. Não inclui ferramentas MCP, HA ou DR automático.
 
 ## Visão
 
@@ -13,6 +13,8 @@ O núcleo controla estado, agendamento, limites e supervisão. Scripts realizam 
 Leia [a visão detalhada](docs/VISION.md), [a arquitetura](docs/ARCHITECTURE.md) e [a recuperação](docs/RECOVERY.md).
 
 Para recuperar trechos relevantes em arquivos e recursos MCP, consulte [MCP de leitura e RAG](docs/RETRIEVAL.md). A recuperação é opcional e usa a missão como consulta BM25; sem correspondência lexical, a tentativa falha preservando a memória anterior.
+
+Para criar registros imutáveis com aprovação explícita e recuperar resultados incertos, consulte [ações de escrita](docs/WRITES.md). O protocolo exige um serviço de destino com idempotência e recibos persistentes; o repositório inclui um exemplo local em SQLite.
 
 ## Executar
 
@@ -95,7 +97,7 @@ Os testes cobrem replay, controle concorrente, descarte de resultado tardio, aut
 
 - `trusted-host` exige scripts confiáveis e não limita filesystem/rede/CPU/memória. O modo Docker aplica isolamento e limites descritos em SANDBOX.md; não execute código hostil em produção sem avaliar o kernel, Docker e o modelo de ameaça.
 - Docker: 128 MiB de memória, swap adicional zero, 0,5 CPU, 32 processos, /tmp de 16 MiB. Timeout padrão 30 segundos e saída de 1 MiB. Recursos efetivos são conferidos antes de executar o script.
-- A repetição é segura apenas para o exemplo de leitura. Escritas externas precisam de idempotência e reconciliação futuras.
+- Scripts arbitrários continuam sem garantia de replay seguro para escritas. O adaptador `record.create` aplica aprovação e reconciliação com ID estável; a prevenção de duplicação exige o contrato de idempotência do destino descrito em WRITES.md.
 - O snapshot contém a última memória, eventos e referências a resultados; não é uma trilha imutável ou assinada. O limite é 10.000 ciclos, até aproximadamente 10 GiB de resultados no pior caso. Não há quota total de disco.
 - No modo host, o manifesto não verifica todas as bibliotecas. No modo Docker, o ID cobre a imagem, mas não significa procedência confiável ou ausência de vulnerabilidades. O operador e o daemon são confiáveis; identidade criptográfica e autenticação multiusuário continuam pendentes.
 - Não há serviço supervisor instalado: retomar automaticamente após reboot exige configuração operacional adicional.

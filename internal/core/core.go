@@ -44,6 +44,8 @@ type State struct {
 	Cognition     *CognitionConfig `json:"cognition,omitempty"`
 	ModelAttempts int              `json:"model_attempts"`
 	Retrieval     *RetrievalConfig `json:"retrieval,omitempty"`
+	Writes        *WritePolicy     `json:"writes,omitempty"`
+	Actions       []Intent         `json:"actions,omitempty"`
 }
 type Store struct {
 	Dir  string
@@ -97,6 +99,9 @@ func (s *Store) Load() (*State, error) {
 	case "active", "paused", "cancelled", "completed":
 	default:
 		return nil, errors.New("invalid status")
+	}
+	if err = st.validateActions(); err != nil {
+		return nil, err
 	}
 	return &st, nil
 }
@@ -200,6 +205,9 @@ func executePython(ctx context.Context, p Protocol, r Request, python string, ar
 // Tick retries an interrupted read-only cycle with the same identifier.
 // Arbitrary external writes are NOT safe to replay through this runner.
 func Tick(ctx context.Context, s *Store, st *State, e Executor, now time.Time) error {
+	if st.Status == "active" && nextAction(st) >= 0 {
+		return NewController(s, st, e).Step(ctx, now)
+	}
 	if st.Status != "active" || now.Before(st.NextRun) {
 		return nil
 	}
