@@ -45,6 +45,11 @@ func (c *Controller) Control(action string) error {
 	if !ok {
 		return errors.New("unknown action")
 	}
+	if action == "resume" {
+		if err := RecoveryReady(c.state); err != nil {
+			return err
+		}
+	}
 	c.state.Status = status
 	c.state.Events = append(c.state.Events, Event{time.Now().UTC(), action, c.state.Completed})
 	c.epoch++
@@ -66,6 +71,10 @@ func (c *Controller) Step(ctx context.Context, now time.Time) error {
 		return nil
 	}
 	st := c.state
+	if err := RecoveryReady(st); err != nil {
+		c.mu.Unlock()
+		return err
+	}
 	if index := nextAction(st); index >= 0 {
 		if st.Actions[index].Status == "proposed" || st.Actions[index].Status == "retry_required" {
 			c.mu.Unlock()

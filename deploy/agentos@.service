@@ -1,0 +1,25 @@
+[Unit]
+Description=AgentOS mission %i
+After=network-online.target docker.service
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=agentos
+Group=agentos
+Environment=PATH=/usr/bin:/bin
+EnvironmentFile=/etc/agentos/%i.env
+ExecStart=/opt/agentos/agentos serve --state /var/lib/agentos/%i --listen ${AGENTOS_LISTEN}
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=45
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=yes
+# Docker's daemon must see the same /tmp bind-mount paths as the client.
+PrivateTmp=no
+
+[Install]
+WantedBy=multi-user.target

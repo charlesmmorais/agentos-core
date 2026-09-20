@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly AgentOS backup for mission %i
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=60
+Unit=agentos-backup@%i.service
+
+[Install]
+WantedBy=timers.target

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.0
+
+- Backup offline sob lock, com checkpoint, artefatos referenciados, script atestado, entradas limitadas e inventário SHA-256.
+- Verificação e restauração em diretório novo, sem sobrescrita; estado publicado após as dependências.
+- Identidade/orçamentos preservados, caminhos remapeados e proteção até recover com ambiente verificado e declaração de origem desativada.
+- Aprovações antigas/incertas restauradas como unknown para reconciliação sem PUT automático.
+- Units systemd de serviço, backup offline e timer horário; reinício limitado e preservação de pausa.
+- Testes de perda de entradas, adulteração, snapshot anterior ao efeito externo e job CI com systemd real.
+
+Limites: pacote até 256 MiB; runtime/imagem, segredos e ledger externo não incluídos; sem offsite automático, HA ou teste regional de DR.
+
 ## 0.6.0
 
 - Intenções record.create persistidas e aprovação explícita por hash de identidade, destino e conteúdo.

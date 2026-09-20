@@ -1,4 +1,4 @@
-# Arquitetura v0.6
+# Arquitetura v0.7
 
 O executor padrão de novas missões é Docker. As descrições de subprocesso Python abaixo se aplicam ao modo legado `trusted-host`; consulte [SANDBOX.md](SANDBOX.md) para a fronteira de isolamento, montagem de dados e broker. O controlador seleciona o executor pelo manifesto persistido; runtimes desconhecidos falham sem fallback.
 
@@ -25,6 +25,8 @@ Bearer token exigido em todos os endpoints, comparação de digests em tempo con
 `examples/analyze.py`: script confiável, leitura de até 1000 entradas no primeiro nível do workspace, sem seguir links simbólicos na seleção de arquivos.
 
 ## Persistência
+
+O backup offline mantém o flock durante a captura do checkpoint e dos artefatos referenciados. Um TAR verificável inclui script e cópia limitada de entradas. Na restauração, dependências são gravadas em um destino novo antes da publicação de state.json; a missão fica protegida por revisão de recuperação. Ações aprovadas/incertas retornam como unknown para consultar o destino, sem reenvio automático. Supervisor e agendamento de backup ficam no systemd, fora do núcleo. Veja [RECOVERY.md](RECOVERY.md).
 
 Um diretório de estado por missão. O arquivo `lock` recebe flock exclusivo não bloqueante; o kernel libera o lock quando o processo fecha ou morre. Não remover o arquivo de lock durante execução. Somente filesystem local Linux é suportado; compartilhamento NFS não é validado.
 

@@ -1,0 +1,11 @@
+[Unit]
+Description=Offline consistent backup of AgentOS mission %i
+After=local-fs.target
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+EnvironmentFile=-/etc/agentos/%i.backup.env
+ExecStart=/bin/bash /opt/agentos/deploy/backup.sh %i
+TimeoutStartSec=15min

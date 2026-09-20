@@ -24,7 +24,7 @@ func main() {
 }
 func run() error {
 	if len(os.Args) < 2 {
-		return errors.New("usage: agentos init|run|serve|status|pause|resume|cancel|attest [flags]")
+		return errors.New("usage: agentos init|run|serve|status|pause|resume|cancel|attest|backup|backup-verify|restore|doctor|recover|action-* [flags]")
 	}
 	action := os.Args[1]
 	flags := flag.NewFlagSet(action, flag.ContinueOnError)
@@ -48,10 +48,28 @@ func run() error {
 	payloadFile := flags.String("payload", "", "JSON file with record name and content, for action-propose")
 	intentID := flags.String("intent", "", "action ID")
 	intentDigest := flags.String("digest", "", "exact reviewed action digest")
+	backupOutput := flags.String("output", "", "new backup archive path; never overwritten")
+	archive := flags.String("archive", "", "backup archive for verify/restore")
+	archiveSHA := flags.String("sha256", "", "expected archive SHA-256 from backup receipt")
+	sourceFenced := flags.Bool("source-fenced", false, "operator confirms the original instance is stopped/fenced")
 	var mcpResources []string
 	flags.Func("mcp-resource", "exact permitted MCP resource URI; repeat up to 8 times", func(uri string) error { mcpResources = append(mcpResources, uri); return nil })
 	if err := flags.Parse(os.Args[2:]); err != nil {
 		return err
+	}
+	// Restore must not Open/create the destination before validating the archive.
+	if action == "restore" || action == "backup-verify" {
+		var report *core.BackupReport
+		var err error
+		if action == "restore" {
+			report, err = core.RestoreBackup(*archive, *archiveSHA, *dir)
+		} else {
+			report, err = core.VerifyBackup(*archive, *archiveSHA)
+		}
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(report)
 	}
 	s, err := core.Open(*dir)
 	if err != nil {
@@ -113,6 +131,23 @@ func run() error {
 		return err
 	}
 	switch action {
+	case "backup":
+		if *backupOutput == "" {
+			return errors.New("backup requires --output")
+		}
+		report, err := s.Backup(*backupOutput)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(report)
+	case "doctor":
+		if err := core.Doctor(s, st); err != nil {
+			return err
+		}
+		fmt.Println("local state, artifacts, script and runtime verified; no external readiness or fencing implied")
+		return nil
+	case "recover":
+		return core.ActivateRecovery(s, st, *sourceFenced)
 	case "action-propose", "action-approve", "action-reject", "action-retry":
 		var payload core.RecordPayload
 		if action == "action-propose" {
@@ -161,6 +196,11 @@ func run() error {
 		fmt.Println(string(b))
 		return nil
 	case "pause", "resume", "cancel":
+		if action == "resume" {
+			if err := core.RecoveryReady(st); err != nil {
+				return err
+			}
+		}
 		if st.Status == "cancelled" || st.Status == "completed" {
 			return errors.New("terminal state cannot be changed")
 		}

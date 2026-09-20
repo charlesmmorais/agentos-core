@@ -46,6 +46,7 @@ type State struct {
 	Retrieval     *RetrievalConfig `json:"retrieval,omitempty"`
 	Writes        *WritePolicy     `json:"writes,omitempty"`
 	Actions       []Intent         `json:"actions,omitempty"`
+	Recovery      *RecoveryState   `json:"recovery,omitempty"`
 }
 type Store struct {
 	Dir  string
@@ -72,6 +73,10 @@ func (s *Store) Load() (*State, error) {
 	if err != nil {
 		return nil, err
 	}
+	return decodeState(b)
+}
+func decodeState(b []byte) (*State, error) {
+	var err error
 	var st State
 	if err = json.Unmarshal(b, &st); err != nil {
 		return nil, err
@@ -205,6 +210,11 @@ func executePython(ctx context.Context, p Protocol, r Request, python string, ar
 // Tick retries an interrupted read-only cycle with the same identifier.
 // Arbitrary external writes are NOT safe to replay through this runner.
 func Tick(ctx context.Context, s *Store, st *State, e Executor, now time.Time) error {
+	if st.Status == "active" {
+		if err := RecoveryReady(st); err != nil {
+			return err
+		}
+	}
 	if st.Status == "active" && nextAction(st) >= 0 {
 		return NewController(s, st, e).Step(ctx, now)
 	}

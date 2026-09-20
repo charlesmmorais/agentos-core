@@ -123,6 +123,9 @@ func (c *Controller) saveAction(a *Intent) error {
 func (c *Controller) ActionControl(command, id, hash string, payload RecordPayload) (Intent, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if err := RecoveryReady(c.state); err != nil {
+		return Intent{}, err
+	}
 	if c.fatal != nil {
 		return Intent{}, c.fatal
 	}
@@ -194,6 +197,12 @@ func (c *Controller) ActionControl(command, id, hash string, payload RecordPaylo
 // RunAction is also used for read-only reconciliation after pause/cancel.
 func (c *Controller) RunAction(ctx context.Context, id string, readOnly bool) error {
 	c.mu.Lock()
+	if !readOnly {
+		if err := RecoveryReady(c.state); err != nil {
+			c.mu.Unlock()
+			return err
+		}
+	}
 	if c.fatal != nil {
 		err := c.fatal
 		c.mu.Unlock()

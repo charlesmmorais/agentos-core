@@ -2,7 +2,7 @@
 
 Micronúcleo em Go para agentes persistentes, com protocolo autônomo e executor Python separado.
 
-**v0.6 — laboratório de continuidade, isolamento e ações aprovadas, Linux/cgroup v2.** Executor Docker restrito, LLM opcional, RAG lexical, cliente MCP de recursos e escrita controlada `record.create` com aprovação por digest e reconciliação. Sem dependências Go externas. Não inclui ferramentas MCP, HA ou DR automático.
+**v0.7 — laboratório de continuidade, ações aprovadas e recuperação assistida, Linux/cgroup v2.** Executor Docker restrito, LLM opcional, RAG lexical, MCP de recursos, escrita controlada, backup verificável e configuração de supervisão externa systemd. Sem dependências Go externas. Não inclui ferramentas MCP, HA ou reconstrução automática de infraestrutura.
 
 ## Visão
 
@@ -100,7 +100,7 @@ Os testes cobrem replay, controle concorrente, descarte de resultado tardio, aut
 - Scripts arbitrários continuam sem garantia de replay seguro para escritas. O adaptador `record.create` aplica aprovação e reconciliação com ID estável; a prevenção de duplicação exige o contrato de idempotência do destino descrito em WRITES.md.
 - O snapshot contém a última memória, eventos e referências a resultados; não é uma trilha imutável ou assinada. O limite é 10.000 ciclos, até aproximadamente 10 GiB de resultados no pior caso. Não há quota total de disco.
 - No modo host, o manifesto não verifica todas as bibliotecas. No modo Docker, o ID cobre a imagem, mas não significa procedência confiável ou ausência de vulnerabilidades. O operador e o daemon são confiáveis; identidade criptográfica e autenticação multiusuário continuam pendentes.
-- Não há serviço supervisor instalado: retomar automaticamente após reboot exige configuração operacional adicional.
+- O repositório fornece units systemd e timer de backup; instalação, credenciais e destino externo devem ser configurados no host de implantação, conforme RECOVERY.md.
 - Persistência local atômica não substitui backup nem garante sobrevivência a perda de disco.
 
 Este projeto é independente do agentOS da Rivet. Nenhum código daquele projeto foi incorporado.
