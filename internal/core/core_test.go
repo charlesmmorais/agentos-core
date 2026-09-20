@@ -29,7 +29,7 @@ func setup(t *testing.T) (*Store, *State) {
 		t.Fatal(e)
 	}
 	t.Cleanup(s.Close)
-	st, e := New(Protocol{"test", t.TempDir(), "/trusted.py", 1, 1, 2})
+	st, e := New(Protocol{Mission: "test", Workspace: t.TempDir(), Script: "/trusted.py", IntervalSeconds: 1, TimeoutSeconds: 1, MaxCycles: 2})
 	if e != nil {
 		t.Fatal(e)
 	}

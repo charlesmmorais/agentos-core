@@ -1,0 +1,9 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>AgentOS — protocolo portátil</title>
+<h1>AgentOS — simulação local</h1><p>Valida o protocolo. Não executa scripts nem persiste missões.</p>
+<textarea id="protocol" rows="12" cols="75">{"mission":"Analisar dados","workspace":"/data","script":"/scripts/analyze.py","interval_seconds":5,"timeout_seconds":30,"max_cycles":3}</textarea>
+<p><button id="run" disabled>Validar protocolo</button></p><pre id="result" aria-live="polite"></pre>
+<script src="wasm_exec.js"></script><script>
+const button=document.getElementById('run'),out=document.getElementById('result');
+button.onclick=()=>{out.textContent=JSON.stringify(JSON.parse(agentosSimulate(document.getElementById('protocol').value)),null,2)};
+(async()=>{try{const go=new Go();const response=await fetch('agentos.wasm');if(!response.ok)throw Error('WASM indisponível');const {instance}=await WebAssembly.instantiate(await response.arrayBuffer(),go.importObject);go.run(instance).catch(e=>{out.textContent=e.message;button.disabled=true});button.disabled=false}catch(e){out.textContent=e.message}})();
+</script></html>

@@ -1,0 +1,56 @@
+name: Portability
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache: false
+      - run: go test -race ./internal/kernel ./internal/platform
+      - run: go test ./internal/core -run 'TestUnsupportedHostNoMutation|TestHostRejectsForeignPath'
+      - run: go build -o agentos-bin.exe ./cmd/agentos
+      - run: go build -o agentos-sim-bin.exe ./cmd/agentos-sim
+      - shell: bash
+        run: |
+          ./agentos-bin.exe capabilities
+          ./agentos-sim-bin.exe < examples/protocol-portable.json
+  wasm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Cross compile native and WASM profiles
+        shell: bash
+        run: |
+          mkdir -p build
+          for target in linux/amd64 linux/arm64 windows/amd64 darwin/amd64 darwin/arm64 js/wasm wasip1/wasm; do
+            GOOS=${target%/*} GOARCH=${target#*/} CGO_ENABLED=0 go build -o "build/agentos-${target%/*}-${target#*/}" ./cmd/agentos
+          done
+          GOOS=js GOARCH=wasm go build -o build/agentos.wasm ./cmd/agentos-web
+          GOOS=wasip1 GOARCH=wasm go build -o build/sim.wasm ./cmd/agentos-sim
+      - name: Execute shared kernel and JS integration
+        run: |
+          GOOS=js GOARCH=wasm go test -exec="$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./internal/kernel ./internal/platform
+          node tests/wasm_smoke.cjs js build/agentos.wasm "$(go env GOROOT)/lib/wasm/wasm_exec.js"
+      - name: Execute trusted Go WASI module without preopened directories
+        run: |
+          node tests/wasm_smoke.cjs wasi build/sim.wasm < examples/protocol-portable.json > build/result.json
+          python3 -c 'import json; r=json.load(open("build/result.json")); assert r["valid"] and not r["execution"] and not r["persistence"]'
+          if echo '{}' | node tests/wasm_smoke.cjs wasi build/sim.wasm; then exit 1; fi

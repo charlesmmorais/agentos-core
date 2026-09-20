@@ -7,11 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/charlesmmorais/agentos-core/internal/platform"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 	"unicode/utf8"
 )
@@ -40,19 +40,6 @@ type BackupReport struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-func regularFile(path string) (*os.File, error) {
-	fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
-	if err != nil {
-		return nil, err
-	}
-	f := os.NewFile(uintptr(fd), path)
-	info, err := f.Stat()
-	if err != nil || !info.Mode().IsRegular() {
-		f.Close()
-		return nil, errors.New("backup accepts regular files only")
-	}
-	return f, nil
-}
 func boundedFile(path string, limit int) ([]byte, error) {
 	f, err := regularFile(path)
 	if err != nil {
@@ -382,6 +369,9 @@ func VerifyBackup(archive, expected string) (*BackupReport, error) {
 	return report, err
 }
 func RestoreBackup(archive, expected, destination string) (*BackupReport, error) {
+	if err := platform.Current().Require(platform.DurableState); err != nil {
+		return nil, err
+	}
 	if b, err := hex.DecodeString(expected); err != nil || len(b) != 32 {
 		return nil, errors.New("restore requires --sha256 from the reviewed backup receipt")
 	}
@@ -419,7 +409,7 @@ func RestoreBackup(archive, expected, destination string) (*BackupReport, error)
 			a.UpdatedAt = time.Now().UTC()
 		}
 	}
-	st.Events = append(st.Events, Event{time.Now().UTC(), "restored_paused_review_required", st.Completed})
+	st.Events = append(st.Events, Event{At: time.Now().UTC(), Kind: "restored_paused_review_required", Cycle: st.Completed})
 	if err = (&Store{Dir: stage}).Save(st); err != nil {
 		return nil, err
 	}

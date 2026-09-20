@@ -2,3 +2,8 @@
 /state/
 __pycache__/
 *.pyc
+
+# Generated portable frontend
+/examples/web/agentos.wasm
+/examples/web/wasm_exec.js
+/build/

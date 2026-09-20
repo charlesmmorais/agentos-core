@@ -50,7 +50,7 @@ func reserveModel(s *Store, st *State) error {
 	}
 	if st.ModelAttempts >= st.Cognition.MaxCalls {
 		st.Status = "paused"
-		st.Events = append(st.Events, Event{time.Now().UTC(), "model_budget_exhausted", st.Completed})
+		st.Events = append(st.Events, Event{At: time.Now().UTC(), Kind: "model_budget_exhausted", Cycle: st.Completed})
 		if err := s.Save(st); err != nil {
 			return err
 		}

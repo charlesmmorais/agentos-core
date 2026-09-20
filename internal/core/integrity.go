@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/charlesmmorais/agentos-core/internal/platform"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,6 +25,9 @@ type Manifest struct {
 
 func digest(b []byte) string { sum := sha256.Sum256(b); return hex.EncodeToString(sum[:]) }
 func Inspect(p Protocol) (*Manifest, error) {
+	if err := platform.Current().Require(platform.NativeProcess); err != nil {
+		return nil, err
+	}
 	source, err := os.ReadFile(p.Script)
 	if err != nil {
 		return nil, err

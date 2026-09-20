@@ -8,12 +8,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/charlesmmorais/agentos-core/internal/platform"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -31,6 +31,9 @@ func validImage(s string) bool {
 	return err == nil
 }
 func InspectDocker(p Protocol, image string) (*Manifest, error) {
+	if err := platform.Current().Require(platform.LinuxSandbox); err != nil {
+		return nil, err
+	}
 	if !validImage(image) {
 		return nil, errors.New("sandbox image must be a local immutable sha256 image ID")
 	}
@@ -74,11 +77,10 @@ func snapshotWorkspace(source, dest string) error {
 		if strings.HasPrefix(entry.Name(), ".") || !entry.Type().IsRegular() {
 			continue
 		}
-		fd, err := syscall.Open(filepath.Join(source, entry.Name()), syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+		file, err := regularFile(filepath.Join(source, entry.Name()))
 		if err != nil {
 			return err
 		}
-		file := os.NewFile(uintptr(fd), entry.Name())
 		info, err := file.Stat()
 		if err != nil || !info.Mode().IsRegular() {
 			file.Close()

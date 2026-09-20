@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/charlesmmorais/agentos-core/internal/kernel"
 	"sync"
 	"time"
 )
@@ -41,9 +42,9 @@ func (c *Controller) Control(action string) error {
 	if c.state.Status == "cancelled" || c.state.Status == "completed" {
 		return errors.New("terminal state")
 	}
-	status, ok := map[string]string{"pause": "paused", "resume": "active", "cancel": "cancelled"}[action]
-	if !ok {
-		return errors.New("unknown action")
+	status, err := kernel.Transition(c.state.Status, action)
+	if err != nil {
+		return err
 	}
 	if action == "resume" {
 		if err := RecoveryReady(c.state); err != nil {
@@ -51,7 +52,7 @@ func (c *Controller) Control(action string) error {
 		}
 	}
 	c.state.Status = status
-	c.state.Events = append(c.state.Events, Event{time.Now().UTC(), action, c.state.Completed})
+	c.state.Events = append(c.state.Events, Event{At: time.Now().UTC(), Kind: action, Cycle: c.state.Completed})
 	c.epoch++
 	if c.cancel != nil {
 		c.cancel()
@@ -82,7 +83,7 @@ func (c *Controller) Step(ctx context.Context, now time.Time) error {
 		}
 		return c.stepActionLocked(ctx, index, false)
 	}
-	if now.Before(st.NextRun) {
+	if !kernel.Due(st.Status, st.NextRun, now) {
 		c.mu.Unlock()
 		return nil
 	}
@@ -95,7 +96,7 @@ func (c *Controller) Step(ctx context.Context, now time.Time) error {
 	}
 	if st.Pending == "" {
 		st.Pending = fmt.Sprintf("%s:%d", st.AgentID, st.Completed+1)
-		st.Events = append(st.Events, Event{now, "started", st.Completed + 1})
+		st.Events = append(st.Events, Event{At: now, Kind: "started", Cycle: st.Completed + 1})
 	}
 	if err := reserveModel(c.store, st); err != nil {
 		if !errors.Is(err, errModelBudget) {
@@ -127,7 +128,7 @@ func (c *Controller) Step(ctx context.Context, now time.Time) error {
 	}
 	if err != nil {
 		st.Status = "paused"
-		st.Events = append(st.Events, Event{time.Now().UTC(), "execution_failed", st.Completed + 1})
+		st.Events = append(st.Events, Event{At: time.Now().UTC(), Kind: "execution_failed", Cycle: st.Completed + 1})
 		if saveErr := c.store.Save(st); saveErr != nil {
 			c.fatal = saveErr
 			return saveErr
@@ -144,7 +145,7 @@ func (c *Controller) Step(ctx context.Context, now time.Time) error {
 	st.Completed++
 	st.Pending = ""
 	st.NextRun = time.Now().UTC().Add(time.Duration(protocol.IntervalSeconds) * time.Second)
-	st.Events = append(st.Events, Event{time.Now().UTC(), "completed", st.Completed})
+	st.Events = append(st.Events, Event{At: time.Now().UTC(), Kind: "completed", Cycle: st.Completed})
 	if st.Completed >= protocol.MaxCycles {
 		st.Status = "completed"
 	}

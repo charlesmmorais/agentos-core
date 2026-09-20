@@ -114,7 +114,7 @@ func nextAction(st *State) int {
 }
 func (c *Controller) saveAction(a *Intent) error {
 	a.UpdatedAt = time.Now().UTC()
-	c.state.Events = append(c.state.Events, Event{a.UpdatedAt, "action_" + a.Status + ":" + a.ID, c.state.Completed})
+	c.state.Events = append(c.state.Events, Event{At: a.UpdatedAt, Kind: "action_" + a.Status + ":" + a.ID, Cycle: c.state.Completed})
 	c.fatal = c.store.Save(c.state)
 	return c.fatal
 }

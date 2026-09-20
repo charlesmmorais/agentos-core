@@ -2,7 +2,9 @@
 
 Micronúcleo em Go para agentes persistentes, com protocolo autônomo e executor Python separado.
 
-**v0.7 — laboratório de continuidade, ações aprovadas e recuperação assistida, Linux/cgroup v2.** Executor Docker restrito, LLM opcional, RAG lexical, MCP de recursos, escrita controlada, backup verificável e configuração de supervisão externa systemd. Sem dependências Go externas. Não inclui ferramentas MCP, HA ou reconstrução automática de infraestrutura.
+**v0.8 — núcleo portátil, capacidades explícitas e operação durável Linux/cgroup v2.** Executor Docker restrito, LLM opcional, RAG lexical, MCP de recursos, escrita controlada, backup verificável e configuração de supervisão externa systemd. Sem dependências Go externas. Não inclui ferramentas MCP, HA ou reconstrução automática de infraestrutura.
+
+A fase 0.8 inclui diagnóstico e validação de protocolos em Windows/macOS, frontend Go/WASM e módulo WASI. Operação durável fora de Linux permanece bloqueada. Consulte [a matriz de suporte e os exemplos](docs/PORTABILITY.md).
 
 ## Visão
 

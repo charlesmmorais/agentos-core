@@ -1,4 +1,4 @@
-// Package core implements a single-host durable protocol runner. Linux only.
+// Package core implements a single-host durable protocol runner. Host adapters enforce platform capabilities.
 package core
 
 import (
@@ -9,26 +9,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/charlesmmorais/agentos-core/internal/kernel"
+	"github.com/charlesmmorais/agentos-core/internal/platform"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"syscall"
 	"time"
 )
 
-type Protocol struct {
-	Mission         string `json:"mission"`
-	Workspace       string `json:"workspace"`
-	Script          string `json:"script"`
-	IntervalSeconds int    `json:"interval_seconds"`
-	TimeoutSeconds  int    `json:"timeout_seconds"`
-	MaxCycles       int    `json:"max_cycles"`
-}
-type Event struct {
-	At    time.Time `json:"at"`
-	Kind  string    `json:"kind"`
-	Cycle int       `json:"cycle"`
-}
+type Protocol = kernel.Protocol
+type Event = kernel.Event
 type State struct {
 	Version       int              `json:"version"`
 	AgentID       string           `json:"agent_id"`
@@ -54,6 +44,9 @@ type Store struct {
 }
 
 func Open(dir string) (*Store, error) {
+	if err := platform.Current().Require(platform.DurableState); err != nil {
+		return nil, err
+	}
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
@@ -61,7 +54,7 @@ func Open(dir string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if err = lockFile(f); err != nil {
 		f.Close()
 		return nil, fmt.Errorf("state already in use: %w", err)
 	}
@@ -84,7 +77,7 @@ func decodeState(b []byte) (*State, error) {
 	if st.Version != 1 || st.AgentID == "" || st.ModelAttempts < 0 {
 		return nil, errors.New("unsupported or invalid state")
 	}
-	if err = st.Protocol.Validate(); err != nil {
+	if err = validateHostProtocol(st.Protocol); err != nil {
 		return nil, err
 	}
 	if st.Cognition != nil {
@@ -111,6 +104,9 @@ func decodeState(b []byte) (*State, error) {
 	return &st, nil
 }
 func (s *Store) Save(st *State) error {
+	if err := platform.Current().Require(platform.DurableState); err != nil {
+		return err
+	}
 	b, err := json.MarshalIndent(st, "", "  ")
 	if err != nil {
 		return err
@@ -141,14 +137,8 @@ func (s *Store) Save(st *State) error {
 	defer d.Close()
 	return d.Sync()
 }
-func (p Protocol) Validate() error {
-	if p.Mission == "" || !filepath.IsAbs(p.Workspace) || !filepath.IsAbs(p.Script) || p.IntervalSeconds < 1 || p.TimeoutSeconds < 1 || p.MaxCycles < 1 || p.MaxCycles > 10000 {
-		return errors.New("invalid protocol: absolute paths, positive interval/timeout, max_cycles 1..10000 required")
-	}
-	return nil
-}
 func New(p Protocol) (*State, error) {
-	if err := p.Validate(); err != nil {
+	if err := validateHostProtocol(p); err != nil {
 		return nil, err
 	}
 	id := make([]byte, 16)
@@ -181,6 +171,9 @@ func (Python) Execute(ctx context.Context, p Protocol, r Request) (json.RawMessa
 	return executePython(ctx, p, r, "python3", []string{"-I", p.Script})
 }
 func executePython(ctx context.Context, p Protocol, r Request, python string, args []string) (json.RawMessage, error) {
+	if err := platform.Current().Require(platform.NativeProcess); err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(p.TimeoutSeconds)*time.Second)
 	defer cancel()
 	input, err := json.Marshal(r)
@@ -194,8 +187,9 @@ func executePython(ctx context.Context, p Protocol, r Request, python string, ar
 	var out, stderr limitedBuffer
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
+	if err := configureProcess(cmd); err != nil {
+		return nil, err
+	}
 	cmd.WaitDelay = time.Second
 	if err = cmd.Run(); err != nil {
 		return nil, fmt.Errorf("python execution failed: %w", err)
@@ -218,7 +212,7 @@ func Tick(ctx context.Context, s *Store, st *State, e Executor, now time.Time) e
 	if st.Status == "active" && nextAction(st) >= 0 {
 		return NewController(s, st, e).Step(ctx, now)
 	}
-	if st.Status != "active" || now.Before(st.NextRun) {
+	if !kernel.Due(st.Status, st.NextRun, now) {
 		return nil
 	}
 	if st.Completed >= st.Protocol.MaxCycles {
@@ -227,7 +221,7 @@ func Tick(ctx context.Context, s *Store, st *State, e Executor, now time.Time) e
 	}
 	if st.Pending == "" {
 		st.Pending = fmt.Sprintf("%s:%d", st.AgentID, st.Completed+1)
-		st.Events = append(st.Events, Event{now, "started", st.Completed + 1})
+		st.Events = append(st.Events, Event{At: now, Kind: "started", Cycle: st.Completed + 1})
 	}
 	if err := reserveModel(s, st); err != nil {
 		return err
@@ -248,9 +242,19 @@ func Tick(ctx context.Context, s *Store, st *State, e Executor, now time.Time) e
 	st.Completed++
 	st.Pending = ""
 	st.NextRun = time.Now().UTC().Add(time.Duration(st.Protocol.IntervalSeconds) * time.Second)
-	st.Events = append(st.Events, Event{time.Now().UTC(), "completed", st.Completed})
+	st.Events = append(st.Events, Event{At: time.Now().UTC(), Kind: "completed", Cycle: st.Completed})
 	if st.Completed >= st.Protocol.MaxCycles {
 		st.Status = "completed"
 	}
 	return s.Save(st)
+}
+
+func validateHostProtocol(p Protocol) error {
+	if err := p.Validate(); err != nil {
+		return err
+	}
+	if !filepath.IsAbs(p.Workspace) || !filepath.IsAbs(p.Script) {
+		return errors.New("protocol paths are not absolute on this host")
+	}
+	return nil
 }

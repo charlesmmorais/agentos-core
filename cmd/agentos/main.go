@@ -8,6 +8,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/charlesmmorais/agentos-core/internal/core"
+	"github.com/charlesmmorais/agentos-core/internal/kernel"
+	"github.com/charlesmmorais/agentos-core/internal/platform"
 	"io"
 	"os"
 	"os/signal"
@@ -24,9 +26,15 @@ func main() {
 }
 func run() error {
 	if len(os.Args) < 2 {
-		return errors.New("usage: agentos init|run|serve|status|pause|resume|cancel|attest|backup|backup-verify|restore|doctor|recover|action-* [flags]")
+		return errors.New("usage: agentos capabilities|init|run|serve|status|pause|resume|cancel|attest|backup|backup-verify|restore|doctor|recover|action-* [flags]")
 	}
 	action := os.Args[1]
+	if action == "capabilities" {
+		return json.NewEncoder(os.Stdout).Encode(platform.Current())
+	}
+	if err := platform.Current().Require(platform.DurableState); err != nil {
+		return err
+	}
 	flags := flag.NewFlagSet(action, flag.ContinueOnError)
 	dir := flags.String("state", "state", "state directory")
 	workspace := flags.String("workspace", ".", "read-only analysis workspace")
@@ -204,8 +212,11 @@ func run() error {
 		if st.Status == "cancelled" || st.Status == "completed" {
 			return errors.New("terminal state cannot be changed")
 		}
-		statuses := map[string]string{"pause": "paused", "resume": "active", "cancel": "cancelled"}
-		st.Status = statuses[action]
+		status, err := kernel.Transition(st.Status, action)
+		if err != nil {
+			return err
+		}
+		st.Status = status
 		st.Events = append(st.Events, core.Event{At: time.Now().UTC(), Kind: action, Cycle: st.Completed})
 		return s.Save(st)
 	case "run":

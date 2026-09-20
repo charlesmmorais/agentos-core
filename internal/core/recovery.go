@@ -67,6 +67,6 @@ func ActivateRecovery(s *Store, st *State, sourceFenced bool) error {
 		return err
 	}
 	st.Recovery.Ready = true
-	st.Events = append(st.Events, Event{time.Now().UTC(), "recovery_validated_source_fenced", st.Completed})
+	st.Events = append(st.Events, Event{At: time.Now().UTC(), Kind: "recovery_validated_source_fenced", Cycle: st.Completed})
 	return s.Save(st)
 }
