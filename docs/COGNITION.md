@@ -21,7 +21,7 @@ Contrato: POST `<base-url>/chat/completions`, campos `model`, `messages`, `max_t
 
 ## Fontes e confirmação
 
-Antes do script, o adaptador exporta um snapshot limitado pelas regras de SANDBOX.md. O script recebe essa cópia. A seleção lê os primeiros oito arquivos elegíveis em ordem de nome, no primeiro nível: `.txt`, `.md`, `.csv` e `.json`, UTF-8 sem bytes nulos. Cada trecho contém até 2.048 bytes, respeitando caracteres completos. Isto é seleção determinística, sem busca semântica ou RAG.
+Antes do script, o adaptador exporta um snapshot limitado pelas regras de SANDBOX.md. O script recebe essa cópia. Sem RAG, a seleção lê os primeiros oito arquivos elegíveis em ordem de nome, no primeiro nível: `.txt`, `.md`, `.csv` e `.json`, UTF-8 sem bytes nulos. Cada trecho contém até 2.048 bytes, respeitando caracteres completos. A v0.5 adiciona recuperação lexical opcional e fontes MCP; veja [RETRIEVAL.md](RETRIEVAL.md).
 
 Cada fonte registra nome, ID derivado de nome e conteúdo, hash SHA-256 completo, hash do trecho, texto, indicador de truncamento e data de captura. Os trechos ficam dentro do artefato, permitindo conferir as citações depois que os arquivos originais mudarem. O conteúdo completo de arquivos truncados não fica arquivado; seu hash sozinho não permite reconstruí-los. Um replay captura novamente os arquivos e pode observar outra versão.
 
@@ -37,7 +37,7 @@ O limite de chamadas é de 1 a 10.000; o pedido de saída é de 128 a 4.096 toke
 
 Saída inválida, falta de fontes ou falha do provedor não substituem a memória confirmada. `run` termina com erro; `serve` pausa a missão. O ciclo pendente mantém seu identificador. Um crash após envio pode ter sido cobrado pelo provedor mesmo sem confirmação local; replay pode gerar outra chamada, dentro das reservas restantes. Não existe garantia de execução única no provedor.
 
-O artefato e o checkpoint seguem a persistência atômica existente. Restaurar um backup antigo também restaura um orçamento antigo: controle de custos global requer um limite externo no provedor. Esta fase não implementa DR externo nem memória vetorial. A próxima fase prevista é MCP e recuperação seletiva de fontes (RAG).
+O artefato e o checkpoint seguem a persistência atômica existente. Restaurar um backup antigo também restaura um orçamento antigo: controle de custos global requer um limite externo no provedor. Não há DR externo nem memória vetorial. A fase 0.5 implementa MCP de recursos e recuperação lexical opcional.
 
 ## Validação reproduzível
 

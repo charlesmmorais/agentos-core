@@ -41,7 +41,7 @@ Persistência: interfaces exportáveis e versões de esquema explícitas. O snap
 | 0.2 | API de controle, histórico de artefatos, verificação de script e ambiente | Implementado; limites descritos no README |
 | 0.3 | Executor Docker restrito, limites efetivos e broker de leitura | Implementado; requer validação no host de implantação |
 | 0.4 | Adaptador LLM e memória recuperável com fontes | Implementado; validado com provedor simulado |
-| 0.5 | MCP de leitura e RAG | Planejado |
+| 0.5 | MCP de leitura e RAG | Implementado: recursos HTTP autorizados e BM25; perfil e limites em RETRIEVAL.md |
 | 0.6 | Intenções, aprovações, recibos e reconciliação de escrita | Planejado |
 | 0.7 | Backup consistente, restauração assistida e supervisor externo | Planejado |
 

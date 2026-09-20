@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0
+
+- RAG lexical BM25 opcional sobre trechos locais e recursos MCP, com ranking determinístico.
+- Cliente MCP Streamable HTTP (JSON/SSE), protocolo 2025-06-18, um endpoint e até oito URIs autorizadas.
+- Limites de tamanho/tempo, validação de sessão/ID/URI e credencial MCP separada.
+- Proveniência dos trechos com origem, posições, hashes, pontuação e relatório de recuperação.
+- Falhas de aquisição preservam memória confirmada e consomem a reserva persistente.
+- Teste integrado com falha remota, reinício e Python real, também executado em Docker no CI.
+
+Limites: sem tools/call, OAuth, cliente MCP universal, embeddings ou índice persistente. Servidores e modelo simulados na validação; veja docs/RETRIEVAL.md.
+
 ## 0.4.0
 
 - Adaptador Go opcional para Chat Completions, sem bibliotecas externas.

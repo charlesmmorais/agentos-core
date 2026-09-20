@@ -1,4 +1,4 @@
-# Arquitetura v0.4
+# Arquitetura v0.5
 
 O executor padrão de novas missões é Docker. As descrições de subprocesso Python abaixo se aplicam ao modo legado `trusted-host`; consulte [SANDBOX.md](SANDBOX.md) para a fronteira de isolamento, montagem de dados e broker. O controlador seleciona o executor pelo manifesto persistido; runtimes desconhecidos falham sem fallback.
 
@@ -9,6 +9,8 @@ O executor padrão de novas missões é Docker. As descrições de subprocesso P
 `internal/core`: protocolo, estado, persistência, executor, manifesto, artefatos e controlador HTTP.
 
 `CognitiveExecutor` envolve o executor selecionado quando o estado contém configuração LLM. Exporta fontes, executa Python e chama o endpoint configurado pelo operador. A reserva de tentativa é persistida antes desse trabalho. A memória inclui análise, citações verificadas e trechos com hashes; o modelo não recebe capacidades de ação. Veja [COGNITION.md](COGNITION.md).
+
+Quando `retrieval` está configurado, o adaptador usa BM25 para selecionar trechos do snapshot local e de URIs MCP autorizadas. O cliente MCP roda no Go, fora do container sem rede, com credencial separada; não habilita acesso de rede ao script. O agendador e a máquina de estados permanecem iguais. Veja [RETRIEVAL.md](RETRIEVAL.md) para o perfil HTTP restrito, limites e comportamento em falhas.
 
 ## Controle concorrente
 

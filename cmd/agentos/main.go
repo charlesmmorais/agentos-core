@@ -39,6 +39,10 @@ func run() error {
 	baseURL := flags.String("llm-base-url", "", "operator-approved API base URL, e.g. https://host/v1")
 	maxCalls := flags.Int("llm-max-calls", 3, "persistent maximum cognitive attempts")
 	maxTokens := flags.Int("llm-max-tokens", 1024, "maximum requested output tokens per call")
+	rag := flags.Bool("rag", false, "retrieve source chunks using mission terms (requires LLM)")
+	mcpEndpoint := flags.String("mcp-endpoint", "", "operator-authorized MCP Streamable HTTP endpoint")
+	var mcpResources []string
+	flags.Func("mcp-resource", "exact permitted MCP resource URI; repeat up to 8 times", func(uri string) error { mcpResources = append(mcpResources, uri); return nil })
 	if err := flags.Parse(os.Args[2:]); err != nil {
 		return err
 	}
@@ -70,6 +74,18 @@ func run() error {
 		if *model != "" || *baseURL != "" {
 			st.Cognition = &core.CognitionConfig{BaseURL: *baseURL, Model: *model, MaxCalls: *maxCalls, MaxTokens: *maxTokens}
 			if err = st.Cognition.Validate(); err != nil {
+				return err
+			}
+		}
+		if *rag || *mcpEndpoint != "" || len(mcpResources) > 0 {
+			if st.Cognition == nil {
+				return errors.New("RAG/MCP requires --llm-model and --llm-base-url")
+			}
+			st.Retrieval = &core.RetrievalConfig{}
+			if *mcpEndpoint != "" || len(mcpResources) > 0 {
+				st.Retrieval.MCP = &core.MCPConfig{Endpoint: *mcpEndpoint, URIs: mcpResources}
+			}
+			if err = st.Retrieval.Validate(); err != nil {
 				return err
 			}
 		}

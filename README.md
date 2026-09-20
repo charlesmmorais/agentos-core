@@ -2,7 +2,7 @@
 
 Micronúcleo em Go para agentes persistentes, com protocolo autônomo e executor Python separado.
 
-**v0.4 — laboratório de continuidade, isolamento e análise com fontes, Linux/cgroup v2.** Executor Docker restrito, LLM opcional, memória com citações verificadas, API local autenticada e resultados por ciclo. Sem dependências Go externas. Não inclui RAG, MCP, HA ou DR automático.
+**v0.5 — laboratório de continuidade, isolamento e análise com fontes, Linux/cgroup v2.** Executor Docker restrito, LLM opcional, RAG lexical e cliente MCP de recursos com URIs autorizadas. Memória com citações verificadas, API local autenticada e resultados por ciclo. Sem dependências Go externas. Não inclui ferramentas MCP, HA ou DR automático.
 
 ## Visão
 
@@ -11,6 +11,8 @@ O agente é sua identidade, missão, protocolo, memória e compromissos persisti
 O núcleo controla estado, agendamento, limites e supervisão. Scripts realizam o trabalho. O exemplo Python observa arquivos locais sem modificá-los; sua saída JSON torna-se a memória do ciclo mais recente. Com cognição habilitada, o modelo interpreta a missão para produzir uma análise com fontes, sem escolher ferramentas ou alterar o protocolo. Leia [a configuração e os limites da cognição](docs/COGNITION.md).
 
 Leia [a visão detalhada](docs/VISION.md), [a arquitetura](docs/ARCHITECTURE.md) e [a recuperação](docs/RECOVERY.md).
+
+Para recuperar trechos relevantes em arquivos e recursos MCP, consulte [MCP de leitura e RAG](docs/RETRIEVAL.md). A recuperação é opcional e usa a missão como consulta BM25; sem correspondência lexical, a tentativa falha preservando a memória anterior.
 
 ## Executar
 

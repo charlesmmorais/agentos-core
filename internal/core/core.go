@@ -43,6 +43,7 @@ type State struct {
 	Artifacts     []Artifact       `json:"artifacts,omitempty"`
 	Cognition     *CognitionConfig `json:"cognition,omitempty"`
 	ModelAttempts int              `json:"model_attempts"`
+	Retrieval     *RetrievalConfig `json:"retrieval,omitempty"`
 }
 type Store struct {
 	Dir  string
@@ -81,6 +82,14 @@ func (s *Store) Load() (*State, error) {
 	}
 	if st.Cognition != nil {
 		if err = st.Cognition.Validate(); err != nil {
+			return nil, err
+		}
+	}
+	if st.Retrieval != nil {
+		if st.Cognition == nil {
+			return nil, errors.New("retrieval requires cognition")
+		}
+		if err = st.Retrieval.Validate(); err != nil {
 			return nil, err
 		}
 	}

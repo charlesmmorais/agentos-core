@@ -46,7 +46,7 @@ func TestCognitiveMemoryAndBudget(t *testing.T) {
 	}))
 	defer server.Close()
 	st.Cognition = &CognitionConfig{server.URL + "/v1", "mock", 1, 256}
-	executor := CognitiveExecutor{&fake{}, *st.Cognition, "private-test-key"}
+	executor := CognitiveExecutor{Base: &fake{}, Config: *st.Cognition, APIKey: "private-test-key"}
 	if err := Tick(context.Background(), s, st, executor, time.Now().Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func TestModelRejectsProviderFailures(t *testing.T) {
 		t.Run(body[:10], func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(body)) }))
 			defer server.Close()
-			e := CognitiveExecutor{&fake{}, CognitionConfig{server.URL, "mock", 1, 256}, ""}
+			e := CognitiveExecutor{Base: &fake{}, Config: CognitionConfig{server.URL, "mock", 1, 256}}
 			if _, err := e.Execute(context.Background(), Protocol{Workspace: workspace}, Request{}); err == nil {
 				t.Fatal("invalid provider response accepted")
 			}
@@ -147,7 +147,7 @@ func TestModelRedirectAndCancellation(t *testing.T) {
 	defer target.Close()
 	redirect := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, target.URL, 307) }))
 	defer redirect.Close()
-	e := CognitiveExecutor{&fake{}, CognitionConfig{redirect.URL, "mock", 1, 256}, "secret"}
+	e := CognitiveExecutor{Base: &fake{}, Config: CognitionConfig{redirect.URL, "mock", 1, 256}, APIKey: "secret"}
 	if _, err := e.Execute(context.Background(), Protocol{Workspace: workspace}, Request{}); err == nil || strings.Contains(err.Error(), "secret") {
 		t.Fatal("unsafe redirect result")
 	}

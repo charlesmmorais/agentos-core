@@ -64,7 +64,7 @@ func MissionExecutor(st *State) Executor {
 	if st.Cognition == nil {
 		return base
 	}
-	return CognitiveExecutor{Base: base, Config: *st.Cognition, APIKey: os.Getenv("AGENTOS_LLM_API_KEY")}
+	return CognitiveExecutor{Base: base, Config: *st.Cognition, APIKey: os.Getenv("AGENTOS_LLM_API_KEY"), Retrieval: st.Retrieval}
 }
 
 type Source struct {
@@ -75,6 +75,13 @@ type Source struct {
 	Text          string    `json:"text"`
 	Truncated     bool      `json:"truncated"`
 	CapturedAt    time.Time `json:"captured_at"`
+	Origin        string    `json:"origin,omitempty"`
+	Endpoint      string    `json:"endpoint,omitempty"`
+	URI           string    `json:"uri,omitempty"`
+	DocumentID    string    `json:"document_id,omitempty"`
+	StartByte     int       `json:"start_byte,omitempty"`
+	EndByte       int       `json:"end_byte,omitempty"`
+	Score         float64   `json:"score,omitempty"`
 }
 type Claim struct {
 	Text     string `json:"text"`
@@ -154,9 +161,10 @@ func validateAnalysis(content string, sources []Source) (Analysis, error) {
 }
 
 type CognitiveExecutor struct {
-	Base   Executor
-	Config CognitionConfig
-	APIKey string
+	Base      Executor
+	Config    CognitionConfig
+	APIKey    string
+	Retrieval *RetrievalConfig
 }
 
 func (e CognitiveExecutor) Execute(ctx context.Context, p Protocol, r Request) (json.RawMessage, error) {
@@ -172,7 +180,13 @@ func (e CognitiveExecutor) Execute(ctx context.Context, p Protocol, r Request) (
 	if err = snapshotWorkspace(p.Workspace, stage); err != nil {
 		return nil, err
 	}
-	sources, err := collectSources(stage)
+	var sources []Source
+	var retrieval *RetrievalReport
+	if e.Retrieval == nil {
+		sources, err = collectSources(stage)
+	} else {
+		sources, retrieval, err = retrieveSources(ctx, stage, r.Mission, *e.Retrieval)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +257,7 @@ func (e CognitiveExecutor) Execute(ctx context.Context, p Protocol, r Request) (
 	if err != nil {
 		return nil, err
 	}
-	result, err := json.Marshal(map[string]any{"schema": "agentos.cognitive-memory.v1", "cycle_id": r.CycleID, "model": e.Config.Model, "evidence_status": "quotes_verified_claims_unverified", "analysis": analysis, "sources": sources, "execution": execution, "created_at": time.Now().UTC()})
+	result, err := json.Marshal(map[string]any{"schema": "agentos.cognitive-memory.v1", "cycle_id": r.CycleID, "model": e.Config.Model, "evidence_status": "quotes_verified_claims_unverified", "analysis": analysis, "sources": sources, "execution": execution, "retrieval": retrieval, "created_at": time.Now().UTC()})
 	if len(result) > 1024*1024 {
 		return nil, errors.New("cognitive result exceeds limit")
 	}
