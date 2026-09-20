@@ -104,5 +104,3 @@ Os testes cobrem replay, controle concorrente, descarte de resultado tardio, aut
 - No modo host, o manifesto não verifica todas as bibliotecas. No modo Docker, o ID cobre a imagem, mas não significa procedência confiável ou ausência de vulnerabilidades. O operador e o daemon são confiáveis; identidade criptográfica e autenticação multiusuário continuam pendentes.
 - O repositório fornece units systemd e timer de backup; instalação, credenciais e destino externo devem ser configurados no host de implantação, conforme RECOVERY.md.
 - Persistência local atômica não substitui backup nem garante sobrevivência a perda de disco.
-
-Este projeto é independente do agentOS da Rivet. Nenhum código daquele projeto foi incorporado.
