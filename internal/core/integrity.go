@@ -15,6 +15,9 @@ import (
 
 // Manifest is an inventory, not a signature or a full dependency-content lock.
 type Manifest struct {
+	WASIHelper        string `json:"wasi_helper,omitempty"`
+	WASIHelperSHA256  string `json:"wasi_helper_sha256,omitempty"`
+	WASIPolicy        string `json:"wasi_policy,omitempty"`
 	Runtime           string `json:"runtime,omitempty"`
 	Image             string `json:"image,omitempty"`
 	ScriptSHA256      string `json:"script_sha256"`
@@ -60,6 +63,9 @@ func Inspect(p Protocol) (*Manifest, error) {
 }
 
 func SelectExecutor(m *Manifest) Executor {
+	if m != nil && m.Runtime == "wasi" {
+		return WASI{Manifest: m}
+	}
 	if m != nil && m.Runtime == "docker" {
 		return DockerPython{Manifest: m}
 	}

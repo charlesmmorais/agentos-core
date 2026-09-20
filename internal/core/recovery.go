@@ -33,6 +33,8 @@ func Doctor(s *Store, st *State) error {
 	switch st.Execution.Runtime {
 	case "":
 		actual, err = Inspect(st.Protocol)
+	case "wasi":
+		actual, err = InspectWASI(st.Protocol, st.Execution.WASIHelper)
 	case "docker":
 		actual, err = InspectDocker(st.Protocol, st.Execution.Image)
 	default:

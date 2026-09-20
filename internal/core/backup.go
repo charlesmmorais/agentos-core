@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/charlesmmorais/agentos-core/internal/platform"
+	"github.com/charlesmmorais/agentos-core/internal/wasiprotocol"
 	"io"
 	"os"
 	"path/filepath"
@@ -67,6 +68,8 @@ func backupLimit(name string) int {
 	switch name {
 	case "state.json":
 		return 32 * 1024 * 1024
+	case "module.wasm":
+		return wasiprotocol.MaxModule
 	case "script.py":
 		return 64 * 1024
 	case "manifest.json":
@@ -105,7 +108,7 @@ func (s *Store) Backup(output string) (*BackupReport, error) {
 	if st.Execution == nil {
 		return nil, errors.New("backup requires an execution manifest")
 	}
-	script, err := boundedFile(st.Protocol.Script, 64*1024)
+	script, err := boundedFile(st.Protocol.Script, backupLimit(executionBackupName(st.Execution)))
 	if err != nil {
 		return nil, err
 	}
@@ -129,6 +132,9 @@ func (s *Store) Backup(output string) (*BackupReport, error) {
 	hash := sha256.New()
 	writer := tar.NewWriter(io.MultiWriter(f, hash))
 	manifest := backupManifest{Format: "agentos.backup.v1", AgentID: st.AgentID, CreatedAt: time.Now().UTC()}
+	if st.Execution.Runtime == "wasi" {
+		manifest.Format = "agentos.backup.v2"
+	}
 	total := 0
 	add := func(name string, data []byte) error {
 		if backupLimit(name) == 0 || len(data) > backupLimit(name) || total+len(data) > maxBackupBytes || len(manifest.Files) >= 12004 {
@@ -149,7 +155,7 @@ func (s *Store) Backup(output string) (*BackupReport, error) {
 	if err = add("state.json", b); err != nil {
 		return nil, err
 	}
-	if err = add("script.py", script); err != nil {
+	if err = add(executionBackupName(st.Execution), script); err != nil {
 		return nil, err
 	}
 	entries, err := os.ReadDir(workspace)
@@ -317,7 +323,7 @@ func unpack(archive, expected, stage string) (*State, *BackupReport, error) {
 	if expected != "" && expected != archiveHash {
 		return nil, nil, errors.New("archive SHA-256 mismatch")
 	}
-	if !metaSeen || manifest.Format != "agentos.backup.v1" || len(manifest.Files) != len(actual) {
+	if !metaSeen || (manifest.Format != "agentos.backup.v1" && manifest.Format != "agentos.backup.v2") || len(manifest.Files) != len(actual) {
 		return nil, nil, errors.New("backup manifest mismatch")
 	}
 	listed := map[string]bool{}
@@ -339,7 +345,10 @@ func unpack(archive, expected, stage string) (*State, *BackupReport, error) {
 	if st.AgentID != manifest.AgentID || st.Execution == nil {
 		return nil, nil, errors.New("backup identity or execution manifest missing")
 	}
-	if script, exists := actual["script.py"]; !exists || script.SHA256 != st.Execution.ScriptSHA256 {
+	if (st.Execution.Runtime == "wasi") != (manifest.Format == "agentos.backup.v2") {
+		return nil, nil, errors.New("backup format does not match runtime")
+	}
+	if script, exists := actual[executionBackupName(st.Execution)]; !exists || script.SHA256 != st.Execution.ScriptSHA256 {
 		return nil, nil, errors.New("backed-up script integrity mismatch")
 	}
 	referenced := map[string]bool{}
@@ -352,6 +361,9 @@ func unpack(archive, expected, stage string) (*State, *BackupReport, error) {
 		referenced[name] = true
 	}
 	for name := range actual {
+		if (name == "script.py" || name == "module.wasm") && name != executionBackupName(st.Execution) {
+			return nil, nil, errors.New("unexpected executable in archive")
+		}
 		if strings.HasPrefix(name, "artifacts/") && !referenced[name] {
 			return nil, nil, errors.New("unreferenced archive artifact")
 		}
@@ -398,7 +410,7 @@ func RestoreBackup(archive, expected, destination string) (*BackupReport, error)
 	if st.Status == "active" {
 		st.Status = "paused"
 	}
-	st.Protocol.Script = filepath.Join(destination, "script.py")
+	st.Protocol.Script = filepath.Join(destination, executionBackupName(st.Execution))
 	st.Protocol.Workspace = filepath.Join(destination, "workspace")
 	for i := range st.Actions {
 		a := &st.Actions[i]

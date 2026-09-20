@@ -2,9 +2,9 @@
 
 Micronúcleo em Go para agentes persistentes, com protocolo autônomo e executor Python separado.
 
-**v0.8 — núcleo portátil, capacidades explícitas e operação durável Linux/cgroup v2.** Executor Docker restrito, LLM opcional, RAG lexical, MCP de recursos, escrita controlada, backup verificável e configuração de supervisão externa systemd. Sem dependências Go externas. Não inclui ferramentas MCP, HA ou reconstrução automática de infraestrutura.
+**v0.9 — executor WASI separado, núcleo portátil e operação durável Linux.** Executor Docker restrito, LLM opcional, RAG lexical, MCP de recursos, escrita controlada, backup verificável e configuração de supervisão externa systemd. O runtime WASI usa wazero em um executável auxiliar; o binário principal mantém apenas a biblioteca padrão. Não inclui ferramentas MCP, HA ou reconstrução automática de infraestrutura.
 
-A fase 0.8 inclui diagnóstico e validação de protocolos em Windows/macOS, frontend Go/WASM e módulo WASI. Operação durável fora de Linux permanece bloqueada. Consulte [a matriz de suporte e os exemplos](docs/PORTABILITY.md).
+A fase 0.9 adiciona [execução WASI com limites e recuperação](docs/WASI.md). A base da fase 0.8 inclui diagnóstico e validação de protocolos em Windows/macOS, frontend Go/WASM e módulo WASI. Operação durável fora de Linux permanece bloqueada. Consulte [a matriz de suporte e os exemplos](docs/PORTABILITY.md).
 
 ## Visão
 
@@ -76,7 +76,7 @@ Pausa/cancelamento cancelam a atividade em andamento. Resultados tardios não s�
 
 ## Integridade e atualização de estado antigo
 
-No modo host, `init` registra SHA-256 do script e executável Python e fingerprint do inventário de pacotes. No modo Docker, registra o script e ID imutável da imagem inteira. Cada execução confere seu manifesto. O script executado corresponde aos bytes verificados; limite de 64 KiB no arquivo de entrada.
+No modo host, `init` registra SHA-256 do script e executável Python e fingerprint do inventário de pacotes. No modo Docker, registra o script e ID imutável da imagem inteira. Cada execução confere seu manifesto. O script executado corresponde aos bytes verificados; limite de 64 KiB no script Python. No perfil WASI, o módulo pode ter até 16 MiB, com helper e política fixados no manifesto.
 
 Para atestar com serviço parado e sem ciclo pendente, revise os arquivos e execute `./agentos attest --image "$AGENTOS_IMAGE"` (isolado) ou `./agentos attest --executor trusted-host` (host). O comando aceita explicitamente a configuração atual. Não reatesta ciclos pendentes: restaure o script/ambiente original ou cancele a missão e crie outra.
 

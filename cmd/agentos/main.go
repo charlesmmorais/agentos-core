@@ -40,10 +40,12 @@ func run() error {
 	workspace := flags.String("workspace", ".", "read-only analysis workspace")
 	script := flags.String("script", "examples/analyze.py", "trusted Python script")
 	mission := flags.String("mission", "Monitorar arquivos do workspace", "mission description")
+	timeout := flags.Int("timeout", 30, "execution timeout seconds (WASI: 1..300)")
 	interval := flags.Int("interval", 5, "seconds between cycles")
 	cycles := flags.Int("cycles", 3, "maximum cycles")
 	listen := flags.String("listen", "127.0.0.1:8080", "loopback API address")
-	runtime := flags.String("executor", "docker", "docker (default) or trusted-host")
+	wasiHelper := flags.String("wasi-helper", "", "trusted agentos-wasi executable path")
+	runtime := flags.String("executor", "docker", "docker (default), trusted-host or wasi")
 	image := flags.String("image", "", "local immutable Docker image ID")
 	model := flags.String("llm-model", "", "optional model name; enables cognitive analysis")
 	baseURL := flags.String("llm-base-url", "", "operator-approved API base URL, e.g. https://host/v1")
@@ -96,11 +98,11 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		st, err := core.New(core.Protocol{Mission: *mission, Workspace: w, Script: p, IntervalSeconds: *interval, TimeoutSeconds: 30, MaxCycles: *cycles})
+		st, err := core.New(core.Protocol{Mission: *mission, Workspace: w, Script: p, IntervalSeconds: *interval, TimeoutSeconds: *timeout, MaxCycles: *cycles})
 		if err != nil {
 			return err
 		}
-		st.Execution, err = inspectExecution(st.Protocol, *runtime, *image)
+		st.Execution, err = inspectExecution(st.Protocol, *runtime, *image, *wasiHelper)
 		if err != nil {
 			return err
 		}
@@ -188,7 +190,7 @@ func run() error {
 		if st.Pending != "" {
 			return errors.New("pending cycle: restore the original script/environment or cancel this mission")
 		}
-		st.Execution, err = inspectExecution(st.Protocol, *runtime, *image)
+		st.Execution, err = inspectExecution(st.Protocol, *runtime, *image, *wasiHelper)
 		if err != nil {
 			return err
 		}
@@ -245,8 +247,10 @@ func run() error {
 	}
 }
 
-func inspectExecution(p core.Protocol, runtime, image string) (*core.Manifest, error) {
+func inspectExecution(p core.Protocol, runtime, image, helper string) (*core.Manifest, error) {
 	switch runtime {
+	case "wasi":
+		return core.InspectWASI(p, helper)
 	case "docker":
 		return core.InspectDocker(p, image)
 	case "trusted-host":

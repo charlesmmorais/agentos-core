@@ -1,5 +1,7 @@
 # Fase 0.8 — núcleo portátil e capacidades por plataforma
 
+**Atualização 0.9:** o [worker WASI separado](WASI.md) executa tarefas reais e é testado em Linux, Windows e macOS. Missões duráveis seguem restritas a Linux. As limitações de simulação abaixo descrevem os frontends da fase 0.8.
+
 O objetivo desta entrega é tornar as regras do protocolo reutilizáveis em binários
 nativos e WebAssembly, preservando as garantias operacionais do perfil Linux.
 Compilação, execução de código portátil e operação durável são níveis diferentes.
@@ -77,9 +79,7 @@ node tests/wasm_smoke.cjs wasi /tmp/agentos-sim.wasm < examples/protocol-portabl
 O harness usa Node 22 e WASI Preview 1, sem diretórios pré-abertos ou variáveis de
 ambiente repassadas ao módulo. Ele é destinado somente ao módulo confiável gerado
 pelo próprio projeto. **Não é um executor seguro de módulos arbitrários**: Node WASI
-não deve ser usado como fronteira de segurança para código não confiável. Integração
-de executor WASI com memória/tempo limitados e política de capacidades ainda não faz
-parte do executor de missões; Python/Docker permanece o executor Linux.
+não deve ser usado como fronteira de segurança para código não confiável. O executor de missões da fase 0.9 usa um worker wazero separado, descrito em [WASI.md](WASI.md); este harness Node continua restrito ao validador confiável.
 
 ## Garantias preservadas e próximos adaptadores
 
@@ -92,4 +92,4 @@ implementar e testar exclusão mútua, publicação atômica, sincronização, c
 árvore de processos, comunicação com o executor e supervisor nativo. Suporte a
 Docker Desktop não pode ser inferido da compilação: os mounts e sockets atravessam
 outra fronteira de host. A recuperação deve ser validada com falhas reais antes de
-habilitar a capacidade. O executor WASI isolado também requer uma entrega própria.
+habilitar a capacidade. O executor WASI separado está disponível desde a fase 0.9.

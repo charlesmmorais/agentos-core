@@ -16,7 +16,8 @@ jobs:
         with:
           go-version: '1.24.x'
           cache: false
-      - run: go test -race ./internal/kernel ./internal/platform
+      - run: go test -race ./internal/kernel ./internal/platform ./internal/wasiruntime -timeout 180s
+      - run: go build -o agentos-wasi-bin.exe ./cmd/agentos-wasi
       - run: go test ./internal/core -run 'TestUnsupportedHostNoMutation|TestHostRejectsForeignPath'
       - run: go build -o agentos-bin.exe ./cmd/agentos
       - run: go build -o agentos-sim-bin.exe ./cmd/agentos-sim

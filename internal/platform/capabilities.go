@@ -9,6 +9,7 @@ import (
 type Capability string
 
 const (
+	WASIWorker    Capability = "wasi_worker"
 	NativeProcess Capability = "native_process"
 	DurableState  Capability = "durable_state"
 	LinuxSandbox  Capability = "linux_sandbox"
@@ -24,7 +25,10 @@ type Profile struct {
 }
 
 func For(os, arch string) Profile {
-	p := Profile{os, arch, "portable-only", map[Capability]bool{Simulation: true, DurableState: false, LinuxSandbox: false, NativeProcess: false}, "not checked; use doctor for a configured Linux mission"}
+	p := Profile{os, arch, "portable-only", map[Capability]bool{Simulation: true, DurableState: false, LinuxSandbox: false, NativeProcess: false, WASIWorker: false}, "not checked; use doctor for a configured Linux mission"}
+	if os == "linux" || os == "windows" || os == "darwin" {
+		p.Capabilities[WASIWorker] = true
+	}
 	if os == "linux" {
 		p.Level = "native"
 		p.Capabilities[DurableState] = true

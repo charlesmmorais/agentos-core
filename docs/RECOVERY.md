@@ -20,21 +20,21 @@ O TAR, sem compressão, contém:
 
 - `state.json`: identidade, protocolo, agenda, memória, orçamentos, aprovações, intenções, recibos e eventos.
 - `artifacts/<sha256>.json`: somente artefatos referenciados pelo checkpoint, com hashes e tamanhos conferidos.
-- `script.py`: bytes do script atestado, conferidos contra seu manifesto.
+- `script.py` (Python/v1) ou `module.wasm` (WASI/v2): bytes atestados, conferidos contra seu manifesto.
 - `workspace/`: cópia limitada das entradas locais, pelas regras de exportação do executor.
 - `manifest.json`: inventário de caminhos, tamanhos e SHA-256 de cada arquivo.
 
-Não inclui locks, temporários, artefatos órfãos, tokens do ambiente, binário Go, executável/pacotes Python, imagens Docker ou dados de sistemas externos. Dados sensíveis presentes no workspace, memória e payloads continuam no arquivo; não há criptografia ou assinatura de backup. Proteja acesso, armazenamento e transporte.
+Não inclui locks, temporários, artefatos órfãos, tokens do ambiente, binários AgentOS/agentos-wasi, executável/pacotes Python, imagens Docker ou dados de sistemas externos. Dados sensíveis presentes no workspace, memória e payloads continuam no arquivo; não há criptografia ou assinatura de backup. Proteja acesso, armazenamento e transporte.
 
 Consistência significa um checkpoint local sob lock e todos os artefatos que ele referencia. Workspace e script são capturados depois, sem transação com produtores externos; suspenda esses produtores se precisar de uma versão conjunta. Recursos MCP, modelos e recibos remotos não formam um snapshot distribuído.
 
-Limites: até 256 MiB para payload e inventário, 32 MiB para estado, 1 MiB por artefato, 64 KiB para script e 4 MiB por arquivo de workspace, com 16 MiB/1.000 arquivos no workspace. O leitor limita o TAR a 512 MiB e 12.004 entradas. Históricos maiores exigem evolução do formato ou estratégia operacional de retenção; não são truncados silenciosamente.
+Limites: até 256 MiB para payload e inventário, 32 MiB para estado, 1 MiB por artefato, 64 KiB para script Python ou 16 MiB para módulo WASI e 4 MiB por arquivo de workspace, com 16 MiB/1.000 arquivos no workspace. O leitor limita o TAR a 512 MiB e 12.004 entradas. Históricos maiores exigem evolução do formato ou estratégia operacional de retenção; não são truncados silenciosamente.
 
 `backup-verify` confere inventário e hashes internos mesmo sem `--sha256`; quando informado, confere também o hash externo. Rejeita caminhos fora do formato, travessia de diretórios, links, arquivos especiais, entradas duplicadas, dados extras após o TAR e artefatos ausentes/corrompidos. Usa staging temporário e precisa de espaço livre.
 
 ## Restaurar em outro diretório ou host
 
-1. Prepare um host Linux, binário AgentOS e runtime original. Para Docker, recupere a imagem confiável com o mesmo ID; para `trusted-host`, reconstrua Python e o inventário atestado.
+1. Prepare um host Linux, binário AgentOS e runtime original. Para Docker, recupere a imagem confiável com o mesmo ID; para `trusted-host`, reconstrua Python e o inventário atestado; para WASI, instale o helper com o mesmo hash e caminho absoluto.
 2. Desative ou isole a instância original. O flock é local e não impede outra máquina de executar a mesma identidade.
 3. Traga o backup e confira o SHA-256 registrado por canal confiável.
 4. Restaure em um caminho inexistente:
@@ -46,7 +46,7 @@ Limites: até 256 MiB para payload e inventário, 32 MiB para estado, 1 MiB por 
 ./agentos doctor --state /var/lib/agentos/restaurado
 ```
 
-O hash externo é obrigatório no `restore`. O comando valida o pacote em staging e recusa destino existente. Mantém identidade, memória, contadores, orçamento, ciclos pendentes e hashes de aprovação. Remapeia os caminhos para `script.py` e `workspace/` dentro do destino; não reatesta automaticamente o runtime.
+O hash externo é obrigatório no `restore`. O comando valida o pacote em staging e recusa destino existente. Mantém identidade, memória, contadores, orçamento, ciclos pendentes e hashes de aprovação. Remapeia os caminhos para `script.py` (ou `module.wasm`) e `workspace/` dentro do destino; não reatesta automaticamente o runtime.
 
 A publicação grava dependências primeiro, sob lock exclusivo, e publica `state.json` por último como marcador de conclusão, com fsync. Uma falha anterior pode deixar diretório incompleto, sem estado carregável. Ele não é removido automaticamente: inspecione antes de descartar e repita em outro caminho. O estado original e o backup permanecem preservados.
 
@@ -121,3 +121,5 @@ Não há exclusão automática, quota, rotação, upload para nuvem ou alertas. 
 Uma cópia no mesmo disco não cobre perda física do host. Configure destino externo, retenção, criptografia e proteção contra exclusão; preserve binário, imagem/runtime, credenciais e dependências remotas. A agenda não garante RPO. RPO depende do último backup externo válido; RTO deve incluir reconstrução de runtime, transferência, verificação, reconciliação e liberação administrativa.
 
 O CI valida corrupção/caminhos maliciosos; retomada após remoção de script/workspace; identidade e ciclos; bloqueio de ativação/script adulterado; reconciliação de efeito posterior ao backup; fluxo Docker; reinício real pelo systemd após SIGKILL mantendo missão pausada; e job de backup com parada/verificação/retomada. Não é teste regional, de provedor de nuvem ou de restauração de imagem Docker em host vazio.
+
+Backups WASI da fase 0.9 usam formato v2; os backups Python permanecem em v1. O leitor atual aceita ambos. Versões antigas não suportam v2. Consulte [WASI](WASI.md).
